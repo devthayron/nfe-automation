@@ -1,0 +1,17 @@
+# XMLs de NF-e
+data/*.xml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Ambiente
+.env
+
+plano.txt
