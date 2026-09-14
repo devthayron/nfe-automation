@@ -16,3 +16,6 @@ venv/
 
 # Planejamento
 plano.txt
+
+# test
+tests/

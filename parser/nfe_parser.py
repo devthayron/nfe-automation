@@ -3,7 +3,14 @@ from decimal import Decimal
 
 from nfelib.nfe.bindings.v4_0.proc_nfe_v4_00 import NfeProc
 
-from schemas.nfe import ItemNFe, NFe, Pessoa, Produto
+from schemas.nfe import (
+    ICMS,
+    ItemNFe,
+    NFe,
+    Pessoa,
+    Produto,
+    Tributacao,
+)
 
 
 class NFeParser:
@@ -20,7 +27,7 @@ class NFeParser:
             self.inf_nfe = self.nfe_proc.NFe.infNFe
             self.inf_prot = self.nfe_proc.protNFe.infProt
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Erro ao ler XML da NFe: {e}")
 
     def extrair_nfe(self):
@@ -68,6 +75,89 @@ class NFeParser:
             desconto=Decimal(str(desconto)) if desconto else Decimal(0),
         )
 
+    def encontrar_grupo_icms(self, icms):
+        for grupo in vars(icms).values():
+            if grupo is not None:
+                return grupo
+
+        return None
+
+    def converter_decimal(self, valor):
+        if valor is None:
+            return None
+
+        return Decimal(str(valor))
+
+    def extrair_icms(self, imposto):
+        icms = imposto.ICMS
+
+        if icms is None:
+            return None
+
+        grupo = self.encontrar_grupo_icms(icms)
+
+        if grupo is None:
+            return None
+
+        cst_csosn = None
+
+        if hasattr(grupo, "CST") and grupo.CST is not None:
+            cst_csosn = str(grupo.CST.value)
+        elif hasattr(grupo, "CSOSN") and grupo.CSOSN is not None:
+            cst_csosn = str(grupo.CSOSN.value)
+
+        origem = getattr(grupo, "orig", None)
+        v_bc = getattr(grupo, "vBC", None)
+        p_icms = getattr(grupo, "pICMS", None)
+        v_icms = getattr(grupo, "vICMS", None)
+
+        base_calculo_st = getattr(grupo, "vBCST", None)
+        aliquota_st = getattr(grupo, "pICMSST", None)
+        valor_st = getattr(grupo, "vICMSST", None)
+
+        return ICMS(
+            origem=int(origem.value) if origem is not None else None,
+            cst_csosn=cst_csosn,
+            base_calculo=self.converter_decimal(v_bc),
+            aliquota=self.converter_decimal(p_icms),
+            valor=self.converter_decimal(v_icms),
+            base_calculo_st=self.converter_decimal(base_calculo_st),
+            aliquota_st=self.converter_decimal(aliquota_st),
+            valor_st=self.converter_decimal(valor_st),
+        )
+
+    def extrair_pis(self, imposto):
+        pass
+
+    def extrair_cofins(self, imposto):
+        pass
+
+    def extrair_ipi(self, imposto):
+        pass
+
+    def extrair_ibs_cbs(self, imposto):
+        pass
+
+    def extrair_tributacao(self, imposto):
+        tributacao = Tributacao()
+
+        if imposto.ICMS:
+            tributacao.icms = self.extrair_icms(imposto)
+
+        if imposto.PIS:
+            tributacao.pis = self.extrair_pis(imposto)
+
+        if imposto.COFINS:
+            tributacao.cofins = self.extrair_cofins(imposto)
+
+        if imposto.IPI:
+            tributacao.ipi = self.extrair_ipi(imposto)
+
+        if imposto.IBSCBS:
+            tributacao.ibs_cbs = self.extrair_ibs_cbs(imposto)
+
+        return tributacao
+
     def extrair_itens(self):
         itens = []
 
@@ -76,6 +166,7 @@ class NFeParser:
                 ItemNFe(
                     numero=int(item.nItem),
                     produto=self.extrair_produto(item.prod),
+                    tributacao=self.extrair_tributacao(item.imposto),
                 )
             )
 
