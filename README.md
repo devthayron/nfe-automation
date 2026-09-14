@@ -2,98 +2,59 @@
 
 ## Sobre
 
-Sistema para leitura, extração e organização de informações de arquivos XML de NF-e (Modelo 55), com o objetivo de disponibilizar os dados de forma estruturada para consulta, análise e geração de relatórios em nível de item.
+Sistema para leitura e extração de informações de arquivos XML de NF-e (Modelo 55), transformando os dados em uma estrutura própria do sistema.
 
 ## Objetivo
 
-Desenvolver uma aplicação capaz de processar XMLs de NF-e, extrair e organizar suas principais informações em uma estrutura própria, possibilitando posteriormente sua persistência, consulta, aplicação de filtros e geração de relatórios.
+Interpretar os XMLs de NF-e e transformar suas informações em objetos Python estruturados, independentes da biblioteca utilizada para leitura do XML.
+
+A partir desses objetos, os dados podem ser utilizados de diferentes formas, como persistência em banco de dados, APIs, relatórios ou outras aplicações.
 
 ## Arquitetura
-
-O sistema utiliza a `nfelib` para interpretar a estrutura do XML e, a partir dela, extrai somente as informações necessárias para o sistema.
-
-Os dados são convertidos para uma estrutura normalizada em `dict`, criando uma camada de desacoplamento entre a biblioteca de leitura do XML e as demais partes da aplicação.
 
 ```text
 XML da NF-e
     ↓
 nfelib
     ↓
-Extração
+Parser
     ↓
-Dados normalizados (dict)
+Modelos Pydantic
     ↓
-Banco de dados / API / Relatórios
+Objeto NFe
+    ↓
+Banco / API / Relatórios / etc.
 ```
 
-Essa abordagem define uma estrutura própria para os dados extraídos, facilitando sua conversão para JSON e utilização por APIs, bancos de dados e relatórios.
+O modelo `NFe` funciona como uma estrutura própria do sistema, mantendo o restante da aplicação independente da estrutura do XML e da `nfelib`.
 
 ## Status do desenvolvimento
 
-### 1. Extração e normalização
+### Extração
 
-* [X] Identificação da NF-e
-* [X] Emitente
-* [X] Destinatário
-* [ ] Itens
-* [ ] Impostos
+* [x] Identificação da NF-e
+* [x] Emitente
+* [x] Destinatário
+* [x] Itens
+* [x] Estrutura de tributação
 
-### 2. Validação
+### Próximas etapas
 
-* [ ] Validação com diferentes estruturas de XML
-* [ ] Validação dos dados extraídos
-* [ ] Validação com maior volume de arquivos
-
-### 3. Persistência
-
-* [ ] Integração com cadastro de lojas
-* [ ] Modelagem do banco de dados
-* [ ] Persistência dos dados normalizados
-
-### 4. API e consulta
-
-* [ ] API com FastAPI
-* [ ] Filtros para consulta
-* [ ] Consultas por região, loja, fornecedor, NF-e, produto e dados fiscais
-
-### 5. Relatórios
-
-* [ ] Relatório em nível de item
-* [ ] Organização por Região → UF → Loja → Fornecedor → NF-e → Item
-* [ ] Exportação para Excel
-* [ ] Totalizadores
-
-### 6. Evoluções
-
-* [ ] Comparações entre fornecedores
-* [ ] Indicadores de divergência
-* [ ] Processamento de grandes volumes
+* [ ] Validação com diferentes XMLs
+* [ ] Persistência dos dados
+* [ ] API
+* [ ] Relatórios
 * [ ] Novas regras e análises fiscais
-
-## Estrutura desejada segue a seguinte organização
-
-NFe
-├── identificação
-├── emitente
-├── destinatário
-└── itens
-    ├── produto
-    └── impostos
-        ├── ICMS
-        ├── PIS
-        ├── COFINS
-        ├── IPI
-
-
-Essa estrutura será utilizada como contrato entre a extração e as etapas posteriores da aplicação.
 
 ## Tecnologias
 
 * Python
+* Pydantic
 * nfelib
 
 ## Autor
 
+
 **Thayron Higlânder**
 
-LinkedIn: [https://www.linkedin.com/in/thayron-higlander](https://www.linkedin.com/in/thayron-higlander)
+LinkedIn: [thayron-higlander](https://www.linkedin.com/in/thayron-higlander)
