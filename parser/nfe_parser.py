@@ -4,6 +4,7 @@ from decimal import Decimal
 from nfelib.nfe.bindings.v4_0.proc_nfe_v4_00 import NfeProc
 
 from schemas.nfe import (
+    COFINS,
     ICMS,
     PIS,
     ItemNFe,
@@ -158,7 +159,33 @@ class NFeParser:
         )
 
     def extrair_cofins(self, imposto):
-        pass
+        cofins = imposto.COFINS
+
+        if cofins is None:
+            return None
+
+        grupo = self.encontrar_grupo(cofins)
+
+        if grupo is None:
+            return None
+
+        nome_grupo = type(grupo).__name__
+        print(nome_grupo)
+
+        if nome_grupo not in {"Cofinsaliq", "Cofinsoutr", "Cofinsnt"}:
+            print(f"Tipo de COFINS não tratado: {nome_grupo}")
+
+        cst = getattr(grupo, "CST", None)
+        v_bc = getattr(grupo, "vBC", None)
+        p_cofins = getattr(grupo, "pCOFINS", None)
+        v_cofins = getattr(grupo, "vCOFINS", None)
+
+        return COFINS(
+            cst=str(cst.value) if cst is not None else None,
+            v_bc=self.converter_decimal(v_bc),
+            p_cofins=self.converter_decimal(p_cofins),
+            v_cofins=self.converter_decimal(v_cofins),
+        )
 
     def extrair_ipi(self, imposto):
         pass
