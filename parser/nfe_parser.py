@@ -5,6 +5,7 @@ from nfelib.nfe.bindings.v4_0.proc_nfe_v4_00 import NfeProc
 
 from schemas.nfe import (
     ICMS,
+    PIS,
     ItemNFe,
     NFe,
     Pessoa,
@@ -75,8 +76,8 @@ class NFeParser:
             v_desc=Decimal(str(v_desc)) if v_desc else Decimal(0),
         )
 
-    def encontrar_grupo_icms(self, icms):
-        for grupo in vars(icms).values():
+    def encontrar_grupo(self, estrutura):
+        for grupo in vars(estrutura).values():
             if grupo is not None:
                 return grupo
 
@@ -94,7 +95,7 @@ class NFeParser:
         if icms is None:
             return None
 
-        grupo = self.encontrar_grupo_icms(icms)
+        grupo = self.encontrar_grupo(icms)
 
         if grupo is None:
             return None
@@ -129,7 +130,32 @@ class NFeParser:
         )
 
     def extrair_pis(self, imposto):
-        pass
+        pis = imposto.PIS
+
+        if pis is None:
+            return None
+
+        grupo = self.encontrar_grupo(pis)
+
+        if grupo is None:
+            return None
+
+        nome_grupo = type(grupo).__name__
+
+        if nome_grupo not in {"Pisaliq", "Pisoutr", "Pisnt"}:
+            print(f"Tipo de PIS não tratado: {nome_grupo}")
+
+        cst = getattr(grupo, "CST", None)
+        v_bc = getattr(grupo, "vBC", None)
+        p_pis = getattr(grupo, "pPIS", None)
+        v_pis = getattr(grupo, "vPIS", None)
+
+        return PIS(
+            cst=str(cst.value) if cst is not None else None,
+            v_bc=self.converter_decimal(v_bc),
+            p_pis=self.converter_decimal(p_pis),
+            v_pis=self.converter_decimal(v_pis),
+        )
 
     def extrair_cofins(self, imposto):
         pass
