@@ -2,13 +2,11 @@
 
 ## Sobre
 
-Sistema para leitura e extração de informações de arquivos XML de NF-e (Modelo 55), transformando os dados em uma estrutura própria do sistema.
+Sistema para leitura e extração das principais informações de arquivos XML de NF-e (Modelo 55), transformando seus dados em uma estrutura própria do sistema.
 
 ## Objetivo
 
-Interpretar os XMLs de NF-e e transformar suas informações em objetos Python estruturados, independentes da biblioteca utilizada para leitura do XML.
-
-A partir desses objetos, os dados podem ser utilizados de diferentes formas, como persistência em banco de dados, APIs, relatórios ou outras aplicações.
+Interpretar XMLs de NF-e e transformá-los em objetos Python estruturados e escaláveis, permitindo seu uso em banco de dados, APIs, relatórios e outras aplicações.
 
 ## Arquitetura
 
@@ -17,16 +15,31 @@ XML da NF-e
     ↓
 nfelib
     ↓
-Parser
+NFeParser
     ↓
-Modelos Pydantic
+NFe
+├── Chave
+├── Número da NF-e
+├── Série
+├── Data de emissão
+├── Emitente
+├── Destinatário
+└── Itens
+    ├── Número do item
+    ├── Produto
+    └── Tributação
+        ├── ICMS
+        ├── PIS
+        ├── COFINS
+        ├── IPI
+        └── IBS/CBS
     ↓
-Objeto NFe
-    ↓
-Banco / API / Relatórios / etc.
+Banco de dados / API / Relatórios
 ```
 
-O modelo `NFe` funciona como uma estrutura própria do sistema, mantendo o restante da aplicação independente da estrutura do XML e da `nfelib`.
+A `nfelib` é utilizada como base para a interpretação dos arquivos XML. O `NFeParser` processa os dados obtidos e os transforma no modelo `NFe`, estruturado com `Pydantic`.
+
+> Esse modelo `NFe` funciona como uma estrutura própria do sistema, mantendo o restante da aplicação independente da estrutura do XML e da `nfelib`.
 
 ## Status do desenvolvimento
 
@@ -36,7 +49,7 @@ O modelo `NFe` funciona como uma estrutura própria do sistema, mantendo o resta
 * [x] Emitente
 * [x] Destinatário
 * [x] Itens
-* [x] Estrutura de tributação
+* [ ] Tributação
 
 ### Próximas etapas
 
@@ -53,7 +66,6 @@ O modelo `NFe` funciona como uma estrutura própria do sistema, mantendo o resta
 * nfelib
 
 ## Autor
-
 
 **Thayron Higlânder**
 
