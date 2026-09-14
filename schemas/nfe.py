@@ -6,54 +6,54 @@ from pydantic import BaseModel
 
 class Pessoa(BaseModel):
     cnpj: str
-    razao_social: str
+    x_nome: str
     uf: str
 
 
 class Produto(BaseModel):
-    codigo: str
-    ean: str | None = None
-    descricao: str
+    c_prod: str
+    c_ean: str | None = None
+    x_prod: str
     ncm: str
     cest: str | None = None
     cfop: str
-    unidade: str
-    quantidade: Decimal
-    valor_unitario: Decimal
-    valor_produto: Decimal
-    desconto: Decimal
+    u_com: str
+    q_com: Decimal
+    v_un_com: Decimal
+    v_prod: Decimal
+    v_desc: Decimal
 
 
 class ICMS(BaseModel):
-    origem: int | None = None
+    orig: int | None = None
     cst_csosn: str | None = None
-    base_calculo: Decimal | None = None
-    aliquota: Decimal | None = None
-    valor: Decimal | None = None
-    base_calculo_st: Decimal | None = None
-    aliquota_st: Decimal | None = None
-    valor_st: Decimal | None = None
+    v_bc: Decimal | None = None
+    p_icms: Decimal | None = None
+    v_icms: Decimal | None = None
+    v_bc_st: Decimal | None = None
+    p_icms_st: Decimal | None = None
+    v_icms_st: Decimal | None = None
 
 
 class PIS(BaseModel):
     cst: str | None = None
-    base_calculo: Decimal | None = None
-    aliquota: Decimal | None = None
-    valor: Decimal | None = None
+    v_bc: Decimal | None = None
+    p_pis: Decimal | None = None
+    v_pis: Decimal | None = None
 
 
 class COFINS(BaseModel):
     cst: str | None = None
-    base_calculo: Decimal | None = None
-    aliquota: Decimal | None = None
-    valor: Decimal | None = None
+    v_bc: Decimal | None = None
+    p_cofins: Decimal | None = None
+    v_cofins: Decimal | None = None
 
 
 class IPI(BaseModel):
     cst: str | None = None
-    base_calculo: Decimal | None = None
-    aliquota: Decimal | None = None
-    valor: Decimal | None = None
+    v_bc: Decimal | None = None
+    p_ipi: Decimal | None = None
+    v_ipi: Decimal | None = None
 
 
 class IBSCBS(BaseModel):
@@ -70,16 +70,16 @@ class Tributacao(BaseModel):
 
 
 class ItemNFe(BaseModel):
-    numero: int
+    n_item: int
     produto: Produto
     tributacao: Tributacao | None = None
 
 
 class NFe(BaseModel):
-    chave: str
-    numero: int
+    ch_nfe: str
+    n_nf: int
     serie: int
-    data_emissao: datetime
+    dh_emi: datetime
     emitente: Pessoa
     destinatario: Pessoa
     itens: list[ItemNFe]

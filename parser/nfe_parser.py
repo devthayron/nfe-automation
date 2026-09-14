@@ -34,10 +34,10 @@ class NFeParser:
         ide = self.inf_nfe.ide
 
         return {
-            "chave": str(self.inf_prot.chNFe),
-            "numero": int(ide.nNF),
+            "ch_nfe": str(self.inf_prot.chNFe),
+            "n_nf": int(ide.nNF),
             "serie": int(ide.serie),
-            "data_emissao": datetime.fromisoformat(str(ide.dhEmi)),
+            "dh_emi": datetime.fromisoformat(str(ide.dhEmi)),
         }
 
     def extrair_emitente(self):
@@ -45,7 +45,7 @@ class NFeParser:
 
         return Pessoa(
             cnpj=str(emit.CNPJ),
-            razao_social=str(emit.xNome),
+            x_nome=str(emit.xNome),
             uf=str(emit.enderEmit.UF.value),
         )
 
@@ -54,25 +54,25 @@ class NFeParser:
 
         return Pessoa(
             cnpj=str(dest.CNPJ),
-            razao_social=str(dest.xNome),
+            x_nome=str(dest.xNome),
             uf=str(dest.enderDest.UF.value),
         )
 
     def extrair_produto(self, produto):
-        desconto = getattr(produto, "vDesc", None)
+        v_desc = getattr(produto, "vDesc", None)
 
         return Produto(
-            codigo=str(produto.cProd),
-            ean=str(produto.cEAN) if produto.cEAN else None,
-            descricao=str(produto.xProd),
+            c_prod=str(produto.cProd),
+            c_ean=str(produto.cEAN) if produto.cEAN else None,
+            x_prod=str(produto.xProd),
             ncm=str(produto.NCM),
             cest=str(produto.CEST) if produto.CEST else None,
             cfop=str(produto.CFOP),
-            unidade=str(produto.uCom),
-            quantidade=Decimal(str(produto.qCom)),
-            valor_unitario=Decimal(str(produto.vUnCom)),
-            valor_produto=Decimal(str(produto.vProd)),
-            desconto=Decimal(str(desconto)) if desconto else Decimal(0),
+            u_com=str(produto.uCom),
+            q_com=Decimal(str(produto.qCom)),
+            v_un_com=Decimal(str(produto.vUnCom)),
+            v_prod=Decimal(str(produto.vProd)),
+            v_desc=Decimal(str(v_desc)) if v_desc else Decimal(0),
         )
 
     def encontrar_grupo_icms(self, icms):
@@ -99,31 +99,33 @@ class NFeParser:
         if grupo is None:
             return None
 
-        cst_csosn = None
+        cst = getattr(grupo, "CST", None)
+        csosn = getattr(grupo, "CSOSN", None)
 
-        if hasattr(grupo, "CST") and grupo.CST is not None:
-            cst_csosn = str(grupo.CST.value)
-        elif hasattr(grupo, "CSOSN") and grupo.CSOSN is not None:
-            cst_csosn = str(grupo.CSOSN.value)
+        if cst is not None:
+            cst_csosn = str(cst.value)
+        elif csosn is not None:
+            cst_csosn = str(csosn.value)
+        else:
+            cst_csosn = None
 
-        origem = getattr(grupo, "orig", None)
+        orig = getattr(grupo, "orig", None)
         v_bc = getattr(grupo, "vBC", None)
         p_icms = getattr(grupo, "pICMS", None)
         v_icms = getattr(grupo, "vICMS", None)
-
-        base_calculo_st = getattr(grupo, "vBCST", None)
-        aliquota_st = getattr(grupo, "pICMSST", None)
-        valor_st = getattr(grupo, "vICMSST", None)
+        v_bc_st = getattr(grupo, "vBCST", None)
+        p_icms_st = getattr(grupo, "pICMSST", None)
+        v_icms_st = getattr(grupo, "vICMSST", None)
 
         return ICMS(
-            origem=int(origem.value) if origem is not None else None,
+            orig=int(orig.value) if orig is not None else None,
             cst_csosn=cst_csosn,
-            base_calculo=self.converter_decimal(v_bc),
-            aliquota=self.converter_decimal(p_icms),
-            valor=self.converter_decimal(v_icms),
-            base_calculo_st=self.converter_decimal(base_calculo_st),
-            aliquota_st=self.converter_decimal(aliquota_st),
-            valor_st=self.converter_decimal(valor_st),
+            v_bc=self.converter_decimal(v_bc),
+            p_icms=self.converter_decimal(p_icms),
+            v_icms=self.converter_decimal(v_icms),
+            v_bc_st=self.converter_decimal(v_bc_st),
+            p_icms_st=self.converter_decimal(p_icms_st),
+            v_icms_st=self.converter_decimal(v_icms_st),
         )
 
     def extrair_pis(self, imposto):
@@ -164,7 +166,7 @@ class NFeParser:
         for item in self.inf_nfe.det:
             itens.append(
                 ItemNFe(
-                    numero=int(item.nItem),
+                    n_item=int(item.nItem),
                     produto=self.extrair_produto(item.prod),
                     tributacao=self.extrair_tributacao(item.imposto),
                 )

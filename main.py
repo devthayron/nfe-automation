@@ -10,18 +10,22 @@ from parser.nfe_parser import NFeParser
 #     parser.listar_grupos_icms()
 
 
-caminho = "data/nota5.xml"
+caminho = "data/nota4.xml"
 
 parser = NFeParser(caminho)
 parser.ler_nfe()
 
 nfe = parser.extrair_dados()
 
-if nfe:
-    print("\n=== TRIBUTAÇÃO DOS ITENS ===")
-    for item in nfe.itens:
-        print(f"\nItem {item.numero}")
-        print(f"ICMS: {item.tributacao.icms}")
-        print(f"PIS: {item.tributacao.pis}")
-        print(f"COFINS: {item.tributacao.cofins}")
-        print(f"IBS/CBS: {item.tributacao.ibs_cbs}")
+t = nfe.model_dump_json(indent=4)
+
+print(t)
+
+# if nfe:
+#     print("\n=== TRIBUTAÇÃO DOS ITENS ===")
+#     for item in nfe.itens:
+#         print(f"\nItem {item.numero}")
+#         print(f"ICMS: {item.tributacao.icms}")
+#         print(f"PIS: {item.tributacao.pis}")
+#         print(f"COFINS: {item.tributacao.cofins}")
+#         print(f"IBS/CBS: {item.tributacao.ibs_cbs}")
