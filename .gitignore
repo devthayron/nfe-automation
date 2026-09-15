@@ -1,9 +1,8 @@
 # XMLs de NF-e
-data/*.xml
+data/
 
 # Python
 __pycache__/
-*.py[cod]
 .venv/
 venv/
 

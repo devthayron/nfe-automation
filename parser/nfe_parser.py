@@ -76,7 +76,7 @@ class NFeParser:
             q_com=Decimal(str(produto.qCom)),
             v_un_com=Decimal(str(produto.vUnCom)),
             v_prod=Decimal(str(produto.vProd)),
-            v_desc=Decimal(str(v_desc)) if v_desc else Decimal(0),
+            v_desc=Decimal(str(v_desc)) if v_desc else None,
         )
 
     def encontrar_grupo(self, estrutura):
@@ -218,7 +218,7 @@ class NFeParser:
                 cst=str(cst.value) if cst is not None else None,
             )
         else:
-            print(f"Tipo de IPI não tratado: {type(grupo).__name__}")
+            print(f"Tipo de IPI não tratado: {type(ipi).__name__}")
             return None
 
     def extrair_ibs_cbs(self, imposto):

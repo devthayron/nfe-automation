@@ -21,7 +21,7 @@ class Produto(BaseModel):
     q_com: Decimal
     v_un_com: Decimal
     v_prod: Decimal
-    v_desc: Decimal
+    v_desc: Decimal | None = None
 
 
 class ICMS(BaseModel):

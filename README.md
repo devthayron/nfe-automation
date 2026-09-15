@@ -45,11 +45,11 @@ A `nfelib` é utilizada como base para a interpretação dos arquivos XML. O `NF
 
 ### Extração
 
-* [x] Identificação da NF-e
-* [x] Emitente
-* [x] Destinatário
-* [x] Itens
-* [ ] Tributação
+* [X] Identificação da NF-e
+* [X] Emitente
+* [X] Destinatário
+* [X] Itens
+* [X] Tributação
 
 ### Próximas etapas
 
