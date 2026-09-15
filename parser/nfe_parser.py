@@ -6,6 +6,7 @@ from nfelib.nfe.bindings.v4_0.proc_nfe_v4_00 import NfeProc
 from schemas.nfe import (
     COFINS,
     ICMS,
+    IPI,
     PIS,
     ItemNFe,
     NFe,
@@ -170,7 +171,6 @@ class NFeParser:
             return None
 
         nome_grupo = type(grupo).__name__
-        print(nome_grupo)
 
         if nome_grupo not in {"Cofinsaliq", "Cofinsoutr", "Cofinsnt"}:
             print(f"Tipo de COFINS não tratado: {nome_grupo}")
@@ -188,7 +188,37 @@ class NFeParser:
         )
 
     def extrair_ipi(self, imposto):
-        pass
+        ipi = imposto.IPI
+
+        if ipi is None:
+            return None
+
+        if ipi.IPITrib is not None:
+            grupo = ipi.IPITrib
+
+            cst = getattr(grupo, "CST", None)
+            v_bc = getattr(grupo, "vBC", None)
+            p_ipi = getattr(grupo, "pIPI", None)
+            v_ipi = getattr(grupo, "vIPI", None)
+
+            return IPI(
+                cst=str(cst.value) if cst is not None else None,
+                v_bc=self.converter_decimal(v_bc),
+                p_ipi=self.converter_decimal(p_ipi),
+                v_ipi=self.converter_decimal(v_ipi),
+            )
+
+        elif ipi.IPINT is not None:
+            grupo = ipi.IPINT
+
+            cst = getattr(grupo, "CST", None)
+
+            return IPI(
+                cst=str(cst.value) if cst is not None else None,
+            )
+        else:
+            print(f"Tipo de IPI não tratado: {type(grupo).__name__}")
+            return None
 
     def extrair_ibs_cbs(self, imposto):
         pass
