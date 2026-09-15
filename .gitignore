@@ -14,7 +14,7 @@ venv/
 .env
 
 # Planejamento
-plano.txt
+planning.txt
 
 # test
 tests/
