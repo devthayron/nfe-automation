@@ -5,6 +5,7 @@ from nfelib.nfe.bindings.v4_0.proc_nfe_v4_00 import NfeProc
 
 from schemas.nfe import (
     COFINS,
+    IBSCBS,
     ICMS,
     IPI,
     PIS,
@@ -221,7 +222,18 @@ class NFeParser:
             return None
 
     def extrair_ibs_cbs(self, imposto):
-        pass
+        ibs_cbs = imposto.IBSCBS
+
+        if ibs_cbs is None:
+            return None
+
+        cst = getattr(ibs_cbs, "CST", None)
+        c_class_trib = getattr(ibs_cbs, "cClassTrib", None)
+
+        return IBSCBS(
+            cst=str(cst) if cst is not None else None,
+            c_class_trib=str(c_class_trib) if c_class_trib is not None else None,
+        )
 
     def extrair_tributacao(self, imposto):
         tributacao = Tributacao()

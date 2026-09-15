@@ -10,7 +10,7 @@ from parser.nfe_parser import NFeParser
 #     parser.listar_grupos_icms()
 
 
-caminho = "data/nota4.xml"
+caminho = "data/nota1.xml"
 
 parser = NFeParser(caminho)
 parser.ler_nfe()
