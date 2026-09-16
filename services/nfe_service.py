@@ -6,23 +6,23 @@ import streamlit as st
 from parser.nfe_parser import NFeParser
 
 
-def processar_xmls(arquivos):
+def process_xmls(files):
     nfes = []
     xmls = {}
 
-    for arquivo in arquivos:
-        conteudo = arquivo.getvalue()
+    for file in files:
+        content = file.getvalue()
 
-        with tempfile.TemporaryDirectory() as pasta:
-            caminho = Path(pasta) / arquivo.name
-            caminho.write_bytes(conteudo)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / file.name
+            path.write_bytes(content)
 
-            parser = NFeParser(str(caminho))
-            parser.ler_nfe()
-            nfe = parser.extrair_dados()
+            parser = NFeParser(str(path))
+            parser.read_nfe()
+            nfe = parser.extract_data()
 
         if not nfe:
-            st.warning(f"Não foi possível processar o arquivo '{arquivo.name}'.")
+            st.warning(f"Não foi possível processar o arquivo '{file.name}'.")
             continue
 
         if nfe.ch_nfe in xmls:
@@ -34,8 +34,8 @@ def processar_xmls(arquivos):
         nfes.append(nfe)
 
         xmls[nfe.ch_nfe] = {
-            "nome": arquivo.name,
-            "conteudo": conteudo.decode("utf-8"),
+            "name": file.name,
+            "content": content.decode("utf-8"),
         }
 
     return nfes, xmls

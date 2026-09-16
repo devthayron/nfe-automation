@@ -4,13 +4,13 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 
-class Pessoa(BaseModel):
+class Person(BaseModel):
     cnpj: str
     x_nome: str
     uf: str
 
 
-class Produto(BaseModel):
+class Product(BaseModel):
     c_prod: str
     c_ean: str | None = None
     x_prod: str
@@ -61,7 +61,7 @@ class IBSCBS(BaseModel):
     c_class_trib: str | None = None
 
 
-class Tributacao(BaseModel):
+class Taxation(BaseModel):
     icms: ICMS | None = None
     pis: PIS | None = None
     cofins: COFINS | None = None
@@ -69,10 +69,10 @@ class Tributacao(BaseModel):
     ibs_cbs: IBSCBS | None = None
 
 
-class ItemNFe(BaseModel):
+class NFeItem(BaseModel):
     n_item: int
-    produto: Produto
-    tributacao: Tributacao | None = None
+    product: Product
+    taxation: Taxation | None = None
 
 
 class NFe(BaseModel):
@@ -80,6 +80,6 @@ class NFe(BaseModel):
     n_nf: int
     serie: int
     dh_emi: datetime
-    emitente: Pessoa
-    destinatario: Pessoa
-    itens: list[ItemNFe]
+    emit: Person
+    dest: Person
+    items: list[NFeItem]

@@ -9,24 +9,24 @@ from schemas.nfe import (
     ICMS,
     IPI,
     PIS,
-    ItemNFe,
     NFe,
-    Pessoa,
-    Produto,
-    Tributacao,
+    NFeItem,
+    Person,
+    Product,
+    Taxation,
 )
 
 
 class NFeParser:
-    def __init__(self, caminho: str):
-        self.caminho = caminho
+    def __init__(self, path: str):
+        self.path = path
         self.nfe_proc = None
         self.inf_nfe = None
         self.inf_prot = None
 
-    def ler_nfe(self):
+    def read_nfe(self):
         try:
-            self.nfe_proc = NfeProc.from_path(self.caminho)
+            self.nfe_proc = NfeProc.from_path(self.path)
 
             self.inf_nfe = self.nfe_proc.NFe.infNFe
             self.inf_prot = self.nfe_proc.protNFe.infProt
@@ -34,7 +34,7 @@ class NFeParser:
         except Exception as e:  # noqa: BLE001
             print(f"Erro ao ler XML da NFe: {e}")
 
-    def extrair_nfe(self):
+    def extract_nfe(self):
         ide = self.inf_nfe.ide
 
         return {
@@ -44,67 +44,67 @@ class NFeParser:
             "dh_emi": datetime.fromisoformat(str(ide.dhEmi)),
         }
 
-    def extrair_emitente(self):
+    def extract_emit(self):
         emit = self.inf_nfe.emit
 
-        return Pessoa(
+        return Person(
             cnpj=str(emit.CNPJ),
             x_nome=str(emit.xNome),
             uf=str(emit.enderEmit.UF.value),
         )
 
-    def extrair_destinatario(self):
+    def extract_dest(self):
         dest = self.inf_nfe.dest
 
-        return Pessoa(
+        return Person(
             cnpj=str(dest.CNPJ),
             x_nome=str(dest.xNome),
             uf=str(dest.enderDest.UF.value),
         )
 
-    def extrair_produto(self, produto):
-        v_desc = getattr(produto, "vDesc", None)
+    def extract_product(self, product):
+        v_desc = getattr(product, "vDesc", None)
 
-        return Produto(
-            c_prod=str(produto.cProd),
-            c_ean=str(produto.cEAN) if produto.cEAN else None,
-            x_prod=str(produto.xProd),
-            ncm=str(produto.NCM),
-            cest=str(produto.CEST) if produto.CEST else None,
-            cfop=str(produto.CFOP),
-            u_com=str(produto.uCom),
-            q_com=Decimal(str(produto.qCom)),
-            v_un_com=Decimal(str(produto.vUnCom)),
-            v_prod=Decimal(str(produto.vProd)),
+        return Product(
+            c_prod=str(product.cProd),
+            c_ean=str(product.cEAN) if product.cEAN else None,
+            x_prod=str(product.xProd),
+            ncm=str(product.NCM),
+            cest=str(product.CEST) if product.CEST else None,
+            cfop=str(product.CFOP),
+            u_com=str(product.uCom),
+            q_com=Decimal(str(product.qCom)),
+            v_un_com=Decimal(str(product.vUnCom)),
+            v_prod=Decimal(str(product.vProd)),
             v_desc=Decimal(str(v_desc)) if v_desc else None,
         )
 
-    def encontrar_grupo(self, estrutura):
-        for grupo in vars(estrutura).values():
-            if grupo is not None:
-                return grupo
+    def find_group(self, structure):
+        for group in vars(structure).values():
+            if group is not None:
+                return group
 
         return None
 
-    def converter_decimal(self, valor):
-        if valor is None:
+    def convert_decimal(self, value):
+        if value is None:
             return None
 
-        return Decimal(str(valor))
+        return Decimal(str(value))
 
-    def extrair_icms(self, imposto):
-        icms = imposto.ICMS
+    def extract_icms(self, tax):
+        icms = tax.ICMS
 
         if icms is None:
             return None
 
-        grupo = self.encontrar_grupo(icms)
+        group = self.find_group(icms)
 
-        if grupo is None:
+        if group is None:
             return None
 
-        cst = getattr(grupo, "CST", None)
-        csosn = getattr(grupo, "CSOSN", None)
+        cst = getattr(group, "CST", None)
+        csosn = getattr(group, "CSOSN", None)
 
         if cst is not None:
             cst_csosn = str(cst.value)
@@ -113,116 +113,117 @@ class NFeParser:
         else:
             cst_csosn = None
 
-        orig = getattr(grupo, "orig", None)
-        v_bc = getattr(grupo, "vBC", None)
-        p_icms = getattr(grupo, "pICMS", None)
-        v_icms = getattr(grupo, "vICMS", None)
-        v_bc_st = getattr(grupo, "vBCST", None)
-        p_icms_st = getattr(grupo, "pICMSST", None)
-        v_icms_st = getattr(grupo, "vICMSST", None)
+        orig = getattr(group, "orig", None)
+        v_bc = getattr(group, "vBC", None)
+        p_icms = getattr(group, "pICMS", None)
+        v_icms = getattr(group, "vICMS", None)
+        v_bc_st = getattr(group, "vBCST", None)
+        p_icms_st = getattr(group, "pICMSST", None)
+        v_icms_st = getattr(group, "vICMSST", None)
 
         return ICMS(
             orig=int(orig.value) if orig is not None else None,
             cst_csosn=cst_csosn,
-            v_bc=self.converter_decimal(v_bc),
-            p_icms=self.converter_decimal(p_icms),
-            v_icms=self.converter_decimal(v_icms),
-            v_bc_st=self.converter_decimal(v_bc_st),
-            p_icms_st=self.converter_decimal(p_icms_st),
-            v_icms_st=self.converter_decimal(v_icms_st),
+            v_bc=self.convert_decimal(v_bc),
+            p_icms=self.convert_decimal(p_icms),
+            v_icms=self.convert_decimal(v_icms),
+            v_bc_st=self.convert_decimal(v_bc_st),
+            p_icms_st=self.convert_decimal(p_icms_st),
+            v_icms_st=self.convert_decimal(v_icms_st),
         )
 
-    def extrair_pis(self, imposto):
-        pis = imposto.PIS
+    def extract_pis(self, tax):
+        pis = tax.PIS
 
         if pis is None:
             return None
 
-        grupo = self.encontrar_grupo(pis)
+        group = self.find_group(pis)
 
-        if grupo is None:
+        if group is None:
             return None
 
-        nome_grupo = type(grupo).__name__
+        group_name = type(group).__name__
 
-        if nome_grupo not in {"Pisaliq", "Pisoutr", "Pisnt"}:
-            print(f"Tipo de PIS não tratado: {nome_grupo}")
+        if group_name not in {"Pisaliq", "Pisoutr", "Pisnt"}:
+            print(f"Tipo de PIS não tratado: {group_name}")
 
-        cst = getattr(grupo, "CST", None)
-        v_bc = getattr(grupo, "vBC", None)
-        p_pis = getattr(grupo, "pPIS", None)
-        v_pis = getattr(grupo, "vPIS", None)
+        cst = getattr(group, "CST", None)
+        v_bc = getattr(group, "vBC", None)
+        p_pis = getattr(group, "pPIS", None)
+        v_pis = getattr(group, "vPIS", None)
 
         return PIS(
             cst=str(cst.value) if cst is not None else None,
-            v_bc=self.converter_decimal(v_bc),
-            p_pis=self.converter_decimal(p_pis),
-            v_pis=self.converter_decimal(v_pis),
+            v_bc=self.convert_decimal(v_bc),
+            p_pis=self.convert_decimal(p_pis),
+            v_pis=self.convert_decimal(v_pis),
         )
 
-    def extrair_cofins(self, imposto):
-        cofins = imposto.COFINS
+    def extract_cofins(self, tax):
+        cofins = tax.COFINS
 
         if cofins is None:
             return None
 
-        grupo = self.encontrar_grupo(cofins)
+        group = self.find_group(cofins)
 
-        if grupo is None:
+        if group is None:
             return None
 
-        nome_grupo = type(grupo).__name__
+        group_name = type(group).__name__
 
-        if nome_grupo not in {"Cofinsaliq", "Cofinsoutr", "Cofinsnt"}:
-            print(f"Tipo de COFINS não tratado: {nome_grupo}")
+        if group_name not in {"Cofinsaliq", "Cofinsoutr", "Cofinsnt"}:
+            print(f"Tipo de COFINS não tratado: {group_name}")
 
-        cst = getattr(grupo, "CST", None)
-        v_bc = getattr(grupo, "vBC", None)
-        p_cofins = getattr(grupo, "pCOFINS", None)
-        v_cofins = getattr(grupo, "vCOFINS", None)
+        cst = getattr(group, "CST", None)
+        v_bc = getattr(group, "vBC", None)
+        p_cofins = getattr(group, "pCOFINS", None)
+        v_cofins = getattr(group, "vCOFINS", None)
 
         return COFINS(
             cst=str(cst.value) if cst is not None else None,
-            v_bc=self.converter_decimal(v_bc),
-            p_cofins=self.converter_decimal(p_cofins),
-            v_cofins=self.converter_decimal(v_cofins),
+            v_bc=self.convert_decimal(v_bc),
+            p_cofins=self.convert_decimal(p_cofins),
+            v_cofins=self.convert_decimal(v_cofins),
         )
 
-    def extrair_ipi(self, imposto):
-        ipi = imposto.IPI
+    def extract_ipi(self, tax):
+        ipi = tax.IPI
 
         if ipi is None:
             return None
 
         if ipi.IPITrib is not None:
-            grupo = ipi.IPITrib
+            group = ipi.IPITrib
 
-            cst = getattr(grupo, "CST", None)
-            v_bc = getattr(grupo, "vBC", None)
-            p_ipi = getattr(grupo, "pIPI", None)
-            v_ipi = getattr(grupo, "vIPI", None)
+            cst = getattr(group, "CST", None)
+            v_bc = getattr(group, "vBC", None)
+            p_ipi = getattr(group, "pIPI", None)
+            v_ipi = getattr(group, "vIPI", None)
 
             return IPI(
                 cst=str(cst.value) if cst is not None else None,
-                v_bc=self.converter_decimal(v_bc),
-                p_ipi=self.converter_decimal(p_ipi),
-                v_ipi=self.converter_decimal(v_ipi),
+                v_bc=self.convert_decimal(v_bc),
+                p_ipi=self.convert_decimal(p_ipi),
+                v_ipi=self.convert_decimal(v_ipi),
             )
 
         elif ipi.IPINT is not None:
-            grupo = ipi.IPINT
+            group = ipi.IPINT
 
-            cst = getattr(grupo, "CST", None)
+            cst = getattr(group, "CST", None)
 
             return IPI(
                 cst=str(cst.value) if cst is not None else None,
             )
+
         else:
             print(f"Tipo de IPI não tratado: {type(ipi).__name__}")
             return None
 
-    def extrair_ibs_cbs(self, imposto):
-        ibs_cbs = imposto.IBSCBS
+    def extract_ibs_cbs(self, tax):
+        ibs_cbs = tax.IBSCBS
 
         if ibs_cbs is None:
             return None
@@ -235,49 +236,49 @@ class NFeParser:
             c_class_trib=str(c_class_trib) if c_class_trib is not None else None,
         )
 
-    def extrair_tributacao(self, imposto):
-        tributacao = Tributacao()
+    def extract_taxation(self, tax):
+        taxation = Taxation()
 
-        if imposto.ICMS:
-            tributacao.icms = self.extrair_icms(imposto)
+        if tax.ICMS:
+            taxation.icms = self.extract_icms(tax)
 
-        if imposto.PIS:
-            tributacao.pis = self.extrair_pis(imposto)
+        if tax.PIS:
+            taxation.pis = self.extract_pis(tax)
 
-        if imposto.COFINS:
-            tributacao.cofins = self.extrair_cofins(imposto)
+        if tax.COFINS:
+            taxation.cofins = self.extract_cofins(tax)
 
-        if imposto.IPI:
-            tributacao.ipi = self.extrair_ipi(imposto)
+        if tax.IPI:
+            taxation.ipi = self.extract_ipi(tax)
 
-        if imposto.IBSCBS:
-            tributacao.ibs_cbs = self.extrair_ibs_cbs(imposto)
+        if tax.IBSCBS:
+            taxation.ibs_cbs = self.extract_ibs_cbs(tax)
 
-        return tributacao
+        return taxation
 
-    def extrair_itens(self):
-        itens = []
+    def extract_items(self):
+        items = []
 
         for item in self.inf_nfe.det:
-            itens.append(
-                ItemNFe(
+            items.append(
+                NFeItem(
                     n_item=int(item.nItem),
-                    produto=self.extrair_produto(item.prod),
-                    tributacao=self.extrair_tributacao(item.imposto),
+                    product=self.extract_product(item.prod),
+                    taxation=self.extract_taxation(item.imposto),
                 )
             )
 
-        return itens
+        return items
 
-    def extrair_dados(self):
+    def extract_data(self):
         try:
-            dados_nfe = self.extrair_nfe()
+            nfe_data = self.extract_nfe()
 
             return NFe(
-                **dados_nfe,
-                emitente=self.extrair_emitente(),
-                destinatario=self.extrair_destinatario(),
-                itens=self.extrair_itens(),
+                **nfe_data,
+                emit=self.extract_emit(),
+                dest=self.extract_dest(),
+                items=self.extract_items(),
             )
 
         except AttributeError as e:

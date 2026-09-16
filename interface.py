@@ -3,46 +3,46 @@ import tempfile
 import streamlit as st
 
 
-def aplicar_filtro(df, coluna, label):
-    """Aplica um filtro ao DataFrame."""
-    valores = sorted(df[coluna].dropna().astype(str).unique())
+def apply_filter(df, column, label):
+    """Applies a filter to the DataFrame."""
+    values = sorted(df[column].dropna().astype(str).unique())
 
-    selecionados = st.sidebar.multiselect(label, valores)
+    selected = st.sidebar.multiselect(label, values)
 
-    if selecionados:
-        df = df[df[coluna].astype(str).isin(selecionados)]
+    if selected:
+        df = df[df[column].astype(str).isin(selected)]
 
     return df
 
 
-def exibir_filtros(df):
-    """Exibe os filtros disponíveis."""
+def display_filters(df):
+    """Displays the available filters."""
     st.sidebar.header("Filtros")
 
-    df = aplicar_filtro(df, "REGIÃO", "Região")
-    df = aplicar_filtro(df, "Loja", "Loja")
+    df = apply_filter(df, "REGIÃO", "Região")
+    df = apply_filter(df, "Loja", "Loja")
 
     return df
 
 
-def gerar_excel(df):
-    """Gera o arquivo Excel para download."""
-    with tempfile.NamedTemporaryFile(suffix=".xlsx") as arquivo_temp:
-        df.to_excel(arquivo_temp.name, index=False)
+def generate_excel(df):
+    """Generates the Excel file for download."""
+    with tempfile.NamedTemporaryFile(suffix=".xlsx") as temp_file:
+        df.to_excel(temp_file.name, index=False)
 
-        with open(arquivo_temp.name, "rb") as arquivo:
-            return arquivo.read()
+        with open(temp_file.name, "rb") as file:
+            return file.read()
 
 
-def exibir_relatorio(df, quantidade_nfes):
-    """Exibe o relatório e a opção de exportação."""
+def display_report(df, nfe_count):
+    """Displays the report and the export option."""
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("XMLs", quantidade_nfes)
+    col1.metric("XMLs", nfe_count)
     col2.metric("Itens", len(df))
     col3.metric("Fornecedores", df["CNPJ_Fornecedor"].nunique())
 
-    excel = gerar_excel(df)
+    excel = generate_excel(df)
 
     st.download_button(
         label="Exportar para Excel",
@@ -56,15 +56,18 @@ def exibir_relatorio(df, quantidade_nfes):
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
-def exibir_xml(nfes, xmls):
-    """Exibe o XML da NF-e selecionada."""
+def display_xml(nfes, xmls):
+    """Displays the XML of the selected NF-e."""
     st.subheader("XML da NF-e")
 
-    opcoes_nfe = {f"NF: {nfe.n_nf}": nfe.ch_nfe for nfe in nfes}
+    nfe_options = {f"NF: {nfe.n_nf}": nfe.ch_nfe for nfe in nfes}
 
-    identificacao = st.selectbox("Selecione a NF-e", list(opcoes_nfe.keys()))
+    selected_nfe = st.selectbox(
+        "Selecione a NF-e",
+        list(nfe_options.keys()),
+    )
 
-    chave_nfe = opcoes_nfe[identificacao]
+    nfe_key = nfe_options[selected_nfe]
 
     with st.expander("Visualizar XML"):
-        st.code(xmls[chave_nfe]["conteudo"], language="xml")
+        st.code(xmls[nfe_key]["content"], language="xml")

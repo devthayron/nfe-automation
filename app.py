@@ -1,18 +1,18 @@
 import streamlit as st
 
-from excel import gerar_df
-from interface import exibir_filtros, exibir_relatorio, exibir_xml
-from services.nfe_service import processar_xmls
+from excel import generate_dataframe
+from interface import display_filters, display_report, display_xml
+from services.nfe_service import process_xmls
 
-about = """ 
-    Aplicação para processamento de XMLs de NFs modelo 55 e geração de relatórios estruturados para consulta e análise.
+about = """
+Aplicação para processamento de XMLs de NF-e Modelo 55 e geração
+de relatórios estruturados para consulta e análise.
 
-    **Status:** Em fase de testes.
-    """
+**Status:** Em fase de testes.
+"""
 
 
 def main():
-
     st.set_page_config(
         page_title="NF-e Automation",
         layout="wide",
@@ -23,30 +23,32 @@ def main():
 
     st.sidebar.header("Origem dos dados")
 
-    arquivos = st.sidebar.file_uploader(
-        "Selecione os arquivos XML", type="xml", accept_multiple_files=True
+    files = st.sidebar.file_uploader(
+        "Selecione os arquivos XML",
+        type="xml",
+        accept_multiple_files=True,
     )
 
-    if not arquivos:
+    if not files:
         st.info("Selecione os arquivos XML para gerar o relatório.")
         return
 
-    nfes, xmls = processar_xmls(arquivos)
+    nfes, xmls = process_xmls(files)
 
     if not nfes:
         st.error("Nenhuma NF-e válida foi encontrada.")
         return
 
-    df = gerar_df(nfes)
-    df = exibir_filtros(df)
+    df = generate_dataframe(nfes)
+    df = display_filters(df)
 
-    aba_relatorio, aba_xml = st.tabs(["Relatório", "XML da NF-e"])
+    report_tab, xml_tab = st.tabs(["Relatório", "XML da NF-e"])
 
-    with aba_relatorio:
-        exibir_relatorio(df, len(nfes))
+    with report_tab:
+        display_report(df, len(nfes))
 
-    with aba_xml:
-        exibir_xml(nfes, xmls)
+    with xml_tab:
+        display_xml(nfes, xmls)
 
 
 if __name__ == "__main__":

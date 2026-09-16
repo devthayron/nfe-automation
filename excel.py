@@ -1,33 +1,32 @@
 import pandas as pd
 
 
-def gerar_df(nfes):
-
-    linhas = []
+def generate_dataframe(nfes):
+    rows = []
 
     for nfe in nfes:
-        for item in nfe.itens:
-            produto = item.produto
-            tributacao = item.tributacao
+        for item in nfe.items:
+            product = item.product
+            taxation = item.taxation
 
-            icms = tributacao.icms if tributacao else None
-            pis = tributacao.pis if tributacao else None
-            cofins = tributacao.cofins if tributacao else None
-            ipi = tributacao.ipi if tributacao else None
-            ibs_cbs = tributacao.ibs_cbs if tributacao else None
+            icms = taxation.icms if taxation else None
+            pis = taxation.pis if taxation else None
+            cofins = taxation.cofins if taxation else None
+            ipi = taxation.ipi if taxation else None
+            ibs_cbs = taxation.ibs_cbs if taxation else None
 
-            linhas.append(
+            rows.append(
                 {
                     # REGIÃO / LOJA
                     "REGIÃO": None,
-                    "UF_Loja": str(nfe.destinatario.uf),
+                    "UF_Loja": str(nfe.dest.uf),
                     "Codigo_Loja": None,
                     "Loja": None,
-                    "CNPJ_Loja": str(nfe.destinatario.cnpj),
+                    "CNPJ_Loja": str(nfe.dest.cnpj),
                     # FORNECEDOR
-                    "CNPJ_Fornecedor": str(nfe.emitente.cnpj),
-                    "Fornecedor": nfe.emitente.x_nome,
-                    "UF_Fornecedor": str(nfe.emitente.uf),
+                    "CNPJ_Fornecedor": str(nfe.emit.cnpj),
+                    "Fornecedor": nfe.emit.x_nome,
+                    "UF_Fornecedor": str(nfe.emit.uf),
                     # NF-e
                     "chave_acesso": str(nfe.ch_nfe),
                     "nNF": nfe.n_nf,
@@ -35,17 +34,17 @@ def gerar_df(nfes):
                     "dhEmi": nfe.dh_emi.strftime("%d/%m/%Y %H:%M:%S"),
                     # ITEM
                     "nItem": item.n_item,
-                    "cProd": str(produto.c_prod),
-                    "cEAN": (str(produto.c_ean) if produto.c_ean is not None else None),
-                    "xProd": produto.x_prod,
-                    "NCM": str(produto.ncm),
-                    "CEST": (str(produto.cest) if produto.cest is not None else None),
-                    "CFOP": str(produto.cfop),
-                    "uCom": str(produto.u_com),
-                    "qCom": produto.q_com,
-                    "vUnCom": produto.v_un_com,
-                    "vProd": produto.v_prod,
-                    "vDesc": produto.v_desc,
+                    "cProd": str(product.c_prod),
+                    "cEAN": (str(product.c_ean) if product.c_ean is not None else None),
+                    "xProd": product.x_prod,
+                    "NCM": str(product.ncm),
+                    "CEST": (str(product.cest) if product.cest is not None else None),
+                    "CFOP": str(product.cfop),
+                    "uCom": str(product.u_com),
+                    "qCom": product.q_com,
+                    "vUnCom": product.v_un_com,
+                    "vProd": product.v_prod,
+                    "vDesc": product.v_desc,
                     # ICMS
                     "ICMS_CST_CSOSN": (
                         str(icms.cst_csosn)
@@ -70,7 +69,7 @@ def gerar_df(nfes):
                     ),
                     "COFINS_vBC": cofins.v_bc if cofins else None,
                     "COFINS_pCOFINS": cofins.p_cofins if cofins else None,
-                    "COFINS_vCOFINS": cofins.v_cofins if cofins else None,
+                    "COFINS_vCOFINS": (cofins.v_cofins if cofins else None),
                     # IPI
                     "IPI_CST": (str(ipi.cst) if ipi and ipi.cst is not None else None),
                     "IPI_vBC": ipi.v_bc if ipi else None,
@@ -90,9 +89,9 @@ def gerar_df(nfes):
                 }
             )
 
-    return pd.DataFrame(linhas)
+    return pd.DataFrame(rows)
 
 
-def gerar_excel(nfes, caminho="data/nfes.xlsx"):
-    df = gerar_df(nfes)
-    df.to_excel(caminho, index=False)
+def generate_excel(nfes, path="data/nfes.xlsx"):
+    df = generate_dataframe(nfes)
+    df.to_excel(path, index=False)
