@@ -26,8 +26,9 @@ def process_xmls(files):
             continue
 
         if nfe.ch_nfe in xmls:
-            st.warning(
-                f"NF-e {nfe.n_nf} já foi selecionada. O arquivo duplicado foi ignorado."
+            st.toast(
+                f"NF-e {nfe.n_nf} já foi selecionada. O arquivo duplicado foi ignorado.",
+                icon="⚠️",
             )
             continue
 

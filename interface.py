@@ -42,16 +42,20 @@ def display_report(df, nfe_count):
     col2.metric("Itens", len(df))
     col3.metric("Fornecedores", df["CNPJ_Fornecedor"].nunique())
 
+    col1, col2 = st.columns([5, 0.8])
+
+    col1.subheader("Relatório")
+
     excel = generate_excel(df)
 
-    st.download_button(
+    col2.download_button(
         label="Exportar para Excel",
         data=excel,
         file_name="relatorio_nfe.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        icon=":material/download:",
+        use_container_width=True,
     )
-
-    st.subheader("Relatório")
 
     st.dataframe(df, use_container_width=True, hide_index=True)
 
