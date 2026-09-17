@@ -25,6 +25,7 @@ class NFeParser:
         self.inf_prot = None
 
     def read_nfe(self):
+        """Read and parse the NF-e XML file."""
         try:
             self.nfe_proc = NfeProc.from_path(self.path)
 
@@ -32,9 +33,9 @@ class NFeParser:
             self.inf_prot = self.nfe_proc.protNFe.infProt
 
         except Exception as e:  # noqa: BLE001
-            print(f"Erro ao ler XML da NFe: {e}")
+            print(f"Error reading NF-e XML: {e}")
 
-    def extract_nfe(self):
+    def _extract_nfe(self):
         ide = self.inf_nfe.ide
 
         return {
@@ -44,7 +45,7 @@ class NFeParser:
             "dh_emi": datetime.fromisoformat(str(ide.dhEmi)),
         }
 
-    def extract_emit(self):
+    def _extract_emit(self):
         emit = self.inf_nfe.emit
 
         return Person(
@@ -53,7 +54,7 @@ class NFeParser:
             uf=str(emit.enderEmit.UF.value),
         )
 
-    def extract_dest(self):
+    def _extract_dest(self):
         dest = self.inf_nfe.dest
 
         return Person(
@@ -62,7 +63,7 @@ class NFeParser:
             uf=str(dest.enderDest.UF.value),
         )
 
-    def extract_product(self, product):
+    def _extract_product(self, product):
         v_desc = getattr(product, "vDesc", None)
 
         return Product(
@@ -79,26 +80,26 @@ class NFeParser:
             v_desc=Decimal(str(v_desc)) if v_desc else None,
         )
 
-    def find_group(self, structure):
+    def _find_group(self, structure):
         for group in vars(structure).values():
             if group is not None:
                 return group
 
         return None
 
-    def convert_decimal(self, value):
+    def _convert_decimal(self, value):
         if value is None:
             return None
 
         return Decimal(str(value))
 
-    def extract_icms(self, tax):
+    def _extract_icms(self, tax):
         icms = tax.ICMS
 
         if icms is None:
             return None
 
-        group = self.find_group(icms)
+        group = self._find_group(icms)
 
         if group is None:
             return None
@@ -124,21 +125,21 @@ class NFeParser:
         return ICMS(
             orig=int(orig.value) if orig is not None else None,
             cst_csosn=cst_csosn,
-            v_bc=self.convert_decimal(v_bc),
-            p_icms=self.convert_decimal(p_icms),
-            v_icms=self.convert_decimal(v_icms),
-            v_bc_st=self.convert_decimal(v_bc_st),
-            p_icms_st=self.convert_decimal(p_icms_st),
-            v_icms_st=self.convert_decimal(v_icms_st),
+            v_bc=self._convert_decimal(v_bc),
+            p_icms=self._convert_decimal(p_icms),
+            v_icms=self._convert_decimal(v_icms),
+            v_bc_st=self._convert_decimal(v_bc_st),
+            p_icms_st=self._convert_decimal(p_icms_st),
+            v_icms_st=self._convert_decimal(v_icms_st),
         )
 
-    def extract_pis(self, tax):
+    def _extract_pis(self, tax):
         pis = tax.PIS
 
         if pis is None:
             return None
 
-        group = self.find_group(pis)
+        group = self._find_group(pis)
 
         if group is None:
             return None
@@ -146,7 +147,7 @@ class NFeParser:
         group_name = type(group).__name__
 
         if group_name not in {"Pisaliq", "Pisoutr", "Pisnt"}:
-            print(f"Tipo de PIS não tratado: {group_name}")
+            print(f"Unhandled PIS type: {group_name}")
 
         cst = getattr(group, "CST", None)
         v_bc = getattr(group, "vBC", None)
@@ -155,18 +156,18 @@ class NFeParser:
 
         return PIS(
             cst=str(cst.value) if cst is not None else None,
-            v_bc=self.convert_decimal(v_bc),
-            p_pis=self.convert_decimal(p_pis),
-            v_pis=self.convert_decimal(v_pis),
+            v_bc=self._convert_decimal(v_bc),
+            p_pis=self._convert_decimal(p_pis),
+            v_pis=self._convert_decimal(v_pis),
         )
 
-    def extract_cofins(self, tax):
+    def _extract_cofins(self, tax):
         cofins = tax.COFINS
 
         if cofins is None:
             return None
 
-        group = self.find_group(cofins)
+        group = self._find_group(cofins)
 
         if group is None:
             return None
@@ -174,7 +175,7 @@ class NFeParser:
         group_name = type(group).__name__
 
         if group_name not in {"Cofinsaliq", "Cofinsoutr", "Cofinsnt"}:
-            print(f"Tipo de COFINS não tratado: {group_name}")
+            print(f"Unhandled COFINS type: {group_name}")
 
         cst = getattr(group, "CST", None)
         v_bc = getattr(group, "vBC", None)
@@ -183,12 +184,12 @@ class NFeParser:
 
         return COFINS(
             cst=str(cst.value) if cst is not None else None,
-            v_bc=self.convert_decimal(v_bc),
-            p_cofins=self.convert_decimal(p_cofins),
-            v_cofins=self.convert_decimal(v_cofins),
+            v_bc=self._convert_decimal(v_bc),
+            p_cofins=self._convert_decimal(p_cofins),
+            v_cofins=self._convert_decimal(v_cofins),
         )
 
-    def extract_ipi(self, tax):
+    def _extract_ipi(self, tax):
         ipi = tax.IPI
 
         if ipi is None:
@@ -204,9 +205,9 @@ class NFeParser:
 
             return IPI(
                 cst=str(cst.value) if cst is not None else None,
-                v_bc=self.convert_decimal(v_bc),
-                p_ipi=self.convert_decimal(p_ipi),
-                v_ipi=self.convert_decimal(v_ipi),
+                v_bc=self._convert_decimal(v_bc),
+                p_ipi=self._convert_decimal(p_ipi),
+                v_ipi=self._convert_decimal(v_ipi),
             )
 
         elif ipi.IPINT is not None:
@@ -219,10 +220,10 @@ class NFeParser:
             )
 
         else:
-            print(f"Tipo de IPI não tratado: {type(ipi).__name__}")
+            print(f"Unhandled IPI type: {type(ipi).__name__}")
             return None
 
-    def extract_ibs_cbs(self, tax):
+    def _extract_ibs_cbs(self, tax):
         ibs_cbs = tax.IBSCBS
 
         if ibs_cbs is None:
@@ -236,51 +237,57 @@ class NFeParser:
             c_class_trib=str(c_class_trib) if c_class_trib is not None else None,
         )
 
-    def extract_taxation(self, tax):
+    def _extract_taxation(self, tax):
         taxation = Taxation()
 
         if tax.ICMS:
-            taxation.icms = self.extract_icms(tax)
+            taxation.icms = self._extract_icms(tax)
 
         if tax.PIS:
-            taxation.pis = self.extract_pis(tax)
+            taxation.pis = self._extract_pis(tax)
 
         if tax.COFINS:
-            taxation.cofins = self.extract_cofins(tax)
+            taxation.cofins = self._extract_cofins(tax)
 
         if tax.IPI:
-            taxation.ipi = self.extract_ipi(tax)
+            taxation.ipi = self._extract_ipi(tax)
 
         if tax.IBSCBS:
-            taxation.ibs_cbs = self.extract_ibs_cbs(tax)
+            taxation.ibs_cbs = self._extract_ibs_cbs(tax)
 
         return taxation
 
-    def extract_items(self):
+    def _extract_items(self):
         items = []
 
         for item in self.inf_nfe.det:
             items.append(
                 NFeItem(
                     n_item=int(item.nItem),
-                    product=self.extract_product(item.prod),
-                    taxation=self.extract_taxation(item.imposto),
+                    product=self._extract_product(item.prod),
+                    taxation=self._extract_taxation(item.imposto),
                 )
             )
 
         return items
 
     def extract_data(self):
+        """Extract NF-e data into the application's NFe model.
+
+        Returns:
+            NFe | None: The extracted NF-e data, or None if the XML structure is incomplete.
+        """
+
         try:
-            nfe_data = self.extract_nfe()
+            nfe_data = self._extract_nfe()
 
             return NFe(
                 **nfe_data,
-                emit=self.extract_emit(),
-                dest=self.extract_dest(),
-                items=self.extract_items(),
+                emit=self._extract_emit(),
+                dest=self._extract_dest(),
+                items=self._extract_items(),
             )
 
         except AttributeError as e:
-            print(f"Estrutura da NFe incompleta: {e}")
+            print(f"Incomplete NFe structure: {e}")
             return None

@@ -4,19 +4,18 @@ from excel import generate_dataframe
 from interface import display_filters, display_report, display_xml
 from services.nfe_service import process_xmls
 
-about = """
-Aplicação para processamento de XMLs de NF-e Modelo 55 e geração
-de relatórios estruturados para consulta e análise.
-
-**Status:** Em fase de testes.
-"""
-
 
 def main():
+
+    about = """
+        Aplicação para processamento de XMLs de NF-e Modelo 55 e geração
+        de relatórios estruturados para consulta e análise.
+
+        **Status:** Em fase de testes.
+    """
+
     st.set_page_config(
-        page_title="NF-e Automation",
-        layout="wide",
-        menu_items={"About": about},
+        page_title="NF-e Automation", layout="wide", menu_items={"About": about}
     )
 
     st.title("Relatório de NF-e")
