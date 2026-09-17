@@ -4,6 +4,7 @@ from excel import generate_dataframe, generate_excel
 from parser.nfe_parser import NFeParser
 
 
+# Run with: python -m scripts.generate_nfe_report
 def load_nfes(directory):
     nfes = []
 
@@ -19,8 +20,20 @@ def load_nfes(directory):
     return nfes
 
 
+def get_xmls_directory():
+    directory = Path("data")
+    directory.mkdir(exist_ok=True)
+
+    if not list(directory.glob("*.xml")):
+        print('No XML files found in the "data" directory.')
+        print('Add XML files to the "data" directory and run the script again.')
+        raise SystemExit
+
+    return directory
+
+
 if __name__ == "__main__":
-    xmls_directory = "data"
+    xmls_directory = get_xmls_directory()
 
     nfes = load_nfes(xmls_directory)
     df = generate_dataframe(nfes)
