@@ -74,4 +74,8 @@ def display_xml(nfes, xmls):
     nfe_key = nfe_options[selected_nfe]
 
     with st.expander("Visualizar XML"):
-        st.code(xmls[nfe_key]["content"], language="xml")
+        st.code(
+            xmls[nfe_key]["content"],
+            language="xml",
+            height=630,
+        )

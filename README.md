@@ -64,17 +64,17 @@ A aplicação permite:
 
 ### Extração
 
-- [x] Identificação da NF-e
-- [x] Emitente e destinatário
-- [x] Itens
-- [x] Principais dados tributários
+- [X] Identificação da NF-e
+- [X] Emitente e destinatário
+- [X] Itens
+- [X] Principais dados tributários
 
 ### Aplicação - Streamlit
 
-- [x] Processamento e validação de XMLs
-- [x] Visualização dos dados extraídos
-- [x] Identificação de duplicidades
-- [x] Exportação para Excel
+- [X] Processamento e validação de XMLs
+- [X] Visualização dos dados extraídos
+- [X] Identificação de duplicidades
+- [X] Exportação para Excel
 
 ### Próximas etapas
 
