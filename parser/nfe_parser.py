@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from decimal import Decimal
 
@@ -16,6 +17,8 @@ from schemas.nfe import (
     Taxation,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class NFeParser:
     def __init__(self, path: str):
@@ -33,7 +36,7 @@ class NFeParser:
             self.inf_prot = self.nfe_proc.protNFe.infProt
 
         except Exception as e:  # noqa: BLE001
-            print(f"Error reading NF-e XML: {e}")
+            logger.warning("Erro ao ler XML da NF-e: %s", e)
 
     def _extract_nfe(self):
         ide = self.inf_nfe.ide
@@ -147,7 +150,7 @@ class NFeParser:
         group_name = type(group).__name__
 
         if group_name not in {"Pisaliq", "Pisoutr", "Pisnt"}:
-            print(f"Unhandled PIS type: {group_name}")
+            logger.warning("Tipo de PIS não tratado: %s", group_name)
 
         cst = getattr(group, "CST", None)
         v_bc = getattr(group, "vBC", None)
@@ -175,7 +178,7 @@ class NFeParser:
         group_name = type(group).__name__
 
         if group_name not in {"Cofinsaliq", "Cofinsoutr", "Cofinsnt"}:
-            print(f"Unhandled COFINS type: {group_name}")
+            logger.warning("Tipo de COFINS não tratado: %s", group_name)
 
         cst = getattr(group, "CST", None)
         v_bc = getattr(group, "vBC", None)
@@ -210,7 +213,7 @@ class NFeParser:
                 v_ipi=self._convert_decimal(v_ipi),
             )
 
-        elif ipi.IPINT is not None:
+        if ipi.IPINT is not None:
             group = ipi.IPINT
 
             cst = getattr(group, "CST", None)
@@ -219,9 +222,8 @@ class NFeParser:
                 cst=str(cst.value) if cst is not None else None,
             )
 
-        else:
-            print(f"Unhandled IPI type: {type(ipi).__name__}")
-            return None
+        logger.warning("Tipo de IPI não tratado: %s", type(ipi).__name__)
+        return None
 
     def _extract_ibs_cbs(self, tax):
         ibs_cbs = tax.IBSCBS
@@ -277,7 +279,6 @@ class NFeParser:
         Returns:
             NFe | None: The extracted NF-e data, or None if the XML structure is incomplete.
         """
-
         try:
             nfe_data = self._extract_nfe()
 
@@ -289,5 +290,5 @@ class NFeParser:
             )
 
         except AttributeError as e:
-            print(f"Incomplete NFe structure: {e}")
+            logger.warning("Estrutura da NF-e incompleta: %s", e)
             return None

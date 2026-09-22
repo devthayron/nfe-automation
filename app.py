@@ -2,7 +2,10 @@ import streamlit as st
 
 from excel import generate_dataframe
 from interface import display_filters, display_report, display_xml
+from logger import setup_logging
 from services.nfe_service import process_xmls
+
+setup_logging()
 
 about = """
     Aplicação para processamento de XMLs de NF-e Modelo 55 e geração

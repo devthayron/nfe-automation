@@ -5,6 +5,7 @@ import streamlit as st
 
 def apply_filter(df, column, label):
     """Applies a filter to the DataFrame."""
+
     values = sorted(df[column].dropna().astype(str).unique())
 
     selected = st.sidebar.multiselect(label, values)
@@ -17,6 +18,7 @@ def apply_filter(df, column, label):
 
 def display_filters(df):
     """Displays the available filters."""
+
     st.sidebar.header("Filtros")
 
     df = apply_filter(df, "REGIÃO", "Região")
@@ -27,6 +29,7 @@ def display_filters(df):
 
 def generate_excel(df):
     """Generates the Excel file for download."""
+
     with tempfile.NamedTemporaryFile(suffix=".xlsx") as temp_file:
         df.to_excel(temp_file.name, index=False)
 
@@ -54,14 +57,15 @@ def display_report(df, nfe_count):
         file_name="relatorio_nfe.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         icon=":material/download:",
-        use_container_width=True,
+        width="stretch",
     )
 
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
 
 def display_xml(nfes, xmls):
     """Displays the XML of the selected NF-e."""
+
     st.subheader("XML da NF-e")
 
     nfe_options = {f"NF: {nfe.n_nf}": nfe.ch_nfe for nfe in nfes}
