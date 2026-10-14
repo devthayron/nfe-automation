@@ -26,10 +26,13 @@ class Product(BaseModel):
 
 class ICMS(BaseModel):
     orig: int | None = None
-    cst_csosn: str | None = None
+    cst: str | None = None
+    csosn: str | None = None
+
     v_bc: Decimal | None = None
     p_icms: Decimal | None = None
     v_icms: Decimal | None = None
+
     v_bc_st: Decimal | None = None
     p_icms_st: Decimal | None = None
     v_icms_st: Decimal | None = None
@@ -41,6 +44,10 @@ class PIS(BaseModel):
     p_pis: Decimal | None = None
     v_pis: Decimal | None = None
 
+    # Variantes calculadas por quantidade.
+    q_bc_prod: Decimal | None = None
+    v_aliq_prod: Decimal | None = None
+
 
 class COFINS(BaseModel):
     cst: str | None = None
@@ -48,12 +55,20 @@ class COFINS(BaseModel):
     p_cofins: Decimal | None = None
     v_cofins: Decimal | None = None
 
+    # Variantes calculadas por quantidade.
+    q_bc_prod: Decimal | None = None
+    v_aliq_prod: Decimal | None = None
+
 
 class IPI(BaseModel):
     cst: str | None = None
     v_bc: Decimal | None = None
     p_ipi: Decimal | None = None
     v_ipi: Decimal | None = None
+
+    # Variante tributada por unidade.
+    q_unid: Decimal | None = None
+    v_unid: Decimal | None = None
 
 
 class IBSCBS(BaseModel):

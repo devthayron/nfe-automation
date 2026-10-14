@@ -61,25 +61,3 @@ def display_report(df, nfe_count):
     )
 
     st.dataframe(df, width="stretch", hide_index=True)
-
-
-def display_xml(nfes, xmls):
-    """Displays the XML of the selected NF-e."""
-
-    st.subheader("XML da NF-e")
-
-    nfe_options = {f"NF: {nfe.n_nf}": nfe.ch_nfe for nfe in nfes}
-
-    selected_nfe = st.selectbox(
-        "Selecione a NF-e",
-        list(nfe_options.keys()),
-    )
-
-    nfe_key = nfe_options[selected_nfe]
-
-    with st.expander("Visualizar XML"):
-        st.code(
-            xmls[nfe_key]["content"],
-            language="xml",
-            height=630,
-        )

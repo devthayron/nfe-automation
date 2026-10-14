@@ -15,6 +15,11 @@ def generate_dataframe(nfes):
             ipi = taxation.ipi if taxation else None
             ibs_cbs = taxation.ibs_cbs if taxation else None
 
+            # Usa CST quando disponível; caso contrário, usa CSOSN.
+            icms_cst_csosn = (
+                (icms.cst if icms.cst is not None else icms.csosn) if icms else None
+            )
+
             rows.append(
                 {
                     # REGIÃO / LOJA
@@ -47,11 +52,15 @@ def generate_dataframe(nfes):
                     "vDesc": product.v_desc,
                     # ICMS
                     "ICMS_CST_CSOSN": (
-                        str(icms.cst_csosn)
-                        if icms and icms.cst_csosn is not None
-                        else None
+                        str(icms_cst_csosn) if icms_cst_csosn is not None else None
                     ),
                     "ICMS_orig": icms.orig if icms else None,
+                    "ICMS_CST": (
+                        str(icms.cst) if icms and icms.cst is not None else None
+                    ),
+                    "ICMS_CSOSN": (
+                        str(icms.csosn) if icms and icms.csosn is not None else None
+                    ),
                     "ICMS_vBC": icms.v_bc if icms else None,
                     "ICMS_pICMS": icms.p_icms if icms else None,
                     "ICMS_vICMS": icms.v_icms if icms else None,
@@ -63,18 +72,24 @@ def generate_dataframe(nfes):
                     "PIS_vBC": pis.v_bc if pis else None,
                     "PIS_pPIS": pis.p_pis if pis else None,
                     "PIS_vPIS": pis.v_pis if pis else None,
+                    "PIS_qBCProd": pis.q_bc_prod if pis else None,
+                    "PIS_vAliqProd": pis.v_aliq_prod if pis else None,
                     # COFINS
                     "COFINS_CST": (
                         str(cofins.cst) if cofins and cofins.cst is not None else None
                     ),
                     "COFINS_vBC": cofins.v_bc if cofins else None,
                     "COFINS_pCOFINS": cofins.p_cofins if cofins else None,
-                    "COFINS_vCOFINS": (cofins.v_cofins if cofins else None),
+                    "COFINS_vCOFINS": cofins.v_cofins if cofins else None,
+                    "COFINS_qBCProd": cofins.q_bc_prod if cofins else None,
+                    "COFINS_vAliqProd": cofins.v_aliq_prod if cofins else None,
                     # IPI
                     "IPI_CST": (str(ipi.cst) if ipi and ipi.cst is not None else None),
                     "IPI_vBC": ipi.v_bc if ipi else None,
                     "IPI_pIPI": ipi.p_ipi if ipi else None,
                     "IPI_vIPI": ipi.v_ipi if ipi else None,
+                    "IPI_qUnid": ipi.q_unid if ipi else None,
+                    "IPI_vUnid": ipi.v_unid if ipi else None,
                     # IBS / CBS
                     "IBSCBS_CST": (
                         str(ibs_cbs.cst)

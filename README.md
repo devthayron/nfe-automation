@@ -51,11 +51,10 @@ Nesta etapa, a aplicação é utilizada principalmente para **testar e validar a
 
 A aplicação permite:
 
-* Processar múltiplos XMLs;
+* Selecionar uma pasta e processar todos os XMLs dela, incluindo subpastas;
 * Identificar NF-es duplicadas;
 * Visualizar os dados extraídos;
 * Filtrar os dados por região e loja;
-* Visualizar o XML original;
 * Exportar os dados extraídos para Excel.
 
 > OBS. Os arquivos são processados temporariamente e não são armazenados pela aplicação.
