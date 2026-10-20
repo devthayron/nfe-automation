@@ -108,8 +108,8 @@ class NFeParser:
 
         return {
             "ch_nfe": str(ch_nfe),
-            "n_nf": int(ide.nNF),
-            "serie": int(ide.serie),
+            "n_nf": str(ide.nNF),
+            "serie": str(ide.serie),
             "dh_emi": datetime.fromisoformat(str(dh_emi)),
         }
 

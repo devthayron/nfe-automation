@@ -45,13 +45,34 @@ class TaxParser:
         return fields(obj)
 
     @classmethod
+    def _get_attr(cls, obj, name):
+        """
+        Obtém um atributo ignorando diferenças entre maiúsculas
+        e minúsculas, preservando o nome original do campo.
+        """
+        if obj is None:
+            return None
+
+        value = getattr(obj, name, None)
+        if value is not None:
+            return value
+
+        normalized_name = name.casefold()
+
+        for field in cls._get_fields(obj):
+            if field.name.casefold() == normalized_name:
+                return getattr(obj, field.name, None)
+
+        return None
+
+    @classmethod
     def _find_group(cls, structure):
         """Encontra a variante tributária preenchida."""
         if structure is None:
             return None
 
         for field in cls._get_fields(structure):
-            value = getattr(structure, field.name, None)
+            value = cls._get_attr(structure, field.name)
 
             if value is not None and cls._get_fields(value):
                 return value
@@ -64,18 +85,17 @@ class TaxParser:
         if group is None:
             return None
 
-        return cls._get_value(getattr(group, field_name, None))
+        return cls._get_value(cls._get_attr(group, field_name))
 
     @classmethod
     def _extract_icms(cls, tax):
-        group = cls._find_group(getattr(tax, "ICMS", None))
+        group = cls._find_group(cls._get_attr(tax, "ICMS"))
 
         if group is None:
             return None
 
         cst = cls._get_tax_value(group, "CST")
         csosn = cls._get_tax_value(group, "CSOSN")
-
         orig = cls._get_tax_value(group, "orig")
 
         return ICMS(
@@ -92,7 +112,7 @@ class TaxParser:
 
     @classmethod
     def _extract_pis(cls, tax):
-        group = cls._find_group(getattr(tax, "PIS", None))
+        group = cls._find_group(cls._get_attr(tax, "PIS"))
 
         if group is None:
             return None
@@ -110,7 +130,7 @@ class TaxParser:
 
     @classmethod
     def _extract_cofins(cls, tax):
-        group = cls._find_group(getattr(tax, "COFINS", None))
+        group = cls._find_group(cls._get_attr(tax, "COFINS"))
 
         if group is None:
             return None
@@ -128,7 +148,7 @@ class TaxParser:
 
     @classmethod
     def _extract_ipi(cls, tax):
-        group = cls._find_group(getattr(tax, "IPI", None))
+        group = cls._find_group(cls._get_attr(tax, "IPI"))
 
         if group is None:
             return None
@@ -146,7 +166,7 @@ class TaxParser:
 
     @classmethod
     def _extract_ibs_cbs(cls, tax):
-        group = getattr(tax, "IBSCBS", None)
+        group = cls._get_attr(tax, "IBSCBS")
 
         if group is None:
             return None

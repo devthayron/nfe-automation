@@ -15,18 +15,9 @@ def generate_dataframe(nfes):
             ipi = taxation.ipi if taxation else None
             ibs_cbs = taxation.ibs_cbs if taxation else None
 
-            # Usa CST quando disponível; caso contrário, usa CSOSN.
-            icms_cst_csosn = (
-                (icms.cst if icms.cst is not None else icms.csosn) if icms else None
-            )
-
             rows.append(
                 {
-                    # REGIÃO / LOJA
-                    "REGIÃO": None,
                     "UF_Loja": str(nfe.dest.uf),
-                    "Codigo_Loja": None,
-                    "Loja": None,
                     "CNPJ_Loja": str(nfe.dest.cnpj),
                     # FORNECEDOR
                     "CNPJ_Fornecedor": str(nfe.emit.cnpj),
@@ -34,8 +25,8 @@ def generate_dataframe(nfes):
                     "UF_Fornecedor": str(nfe.emit.uf),
                     # NF-e
                     "chave_acesso": str(nfe.ch_nfe),
-                    "nNF": nfe.n_nf,
-                    "serie": nfe.serie,
+                    "nNF": str(nfe.n_nf),
+                    "serie": str(nfe.serie),
                     "dhEmi": nfe.dh_emi.strftime("%d/%m/%Y %H:%M:%S"),
                     # ITEM
                     "nItem": item.n_item,
@@ -51,9 +42,6 @@ def generate_dataframe(nfes):
                     "vProd": product.v_prod,
                     "vDesc": product.v_desc,
                     # ICMS
-                    "ICMS_CST_CSOSN": (
-                        str(icms_cst_csosn) if icms_cst_csosn is not None else None
-                    ),
                     "ICMS_orig": icms.orig if icms else None,
                     "ICMS_CST": (
                         str(icms.cst) if icms and icms.cst is not None else None

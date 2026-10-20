@@ -1,7 +1,7 @@
 import streamlit as st
 
 from excel import generate_dataframe
-from interface import display_filters, display_report
+from interface import display_report
 from logger import setup_logging
 from services.nfe_service import process_xmls
 
@@ -20,7 +20,9 @@ about = """
 def main():
 
     st.set_page_config(
-        page_title="NF-e Automation", layout="wide", menu_items={"About": about}
+        page_title="NF-e Automation",
+        layout="wide",
+        menu_items={"About": about},
     )
 
     st.title("Relatório de NF-e")
@@ -48,7 +50,7 @@ def main():
         return
 
     df = generate_dataframe(nfes)
-    df = display_filters(df)
+    # df = display_filters(df)
 
     display_report(df, len(nfes))
 
