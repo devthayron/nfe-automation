@@ -1,13 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Person(BaseModel):
-    cnpj: str
-    x_nome: str
-    uf: str
+    cnpj: str | None = None  # CNPJ ou CPF
+    x_nome: str = ""
+    uf: str | None = None
 
 
 class Product(BaseModel):
@@ -24,70 +25,13 @@ class Product(BaseModel):
     v_desc: Decimal | None = None
 
 
-class ICMS(BaseModel):
-    orig: int | None = None
-    cst: str | None = None
-    csosn: str | None = None
-
-    v_bc: Decimal | None = None
-    p_icms: Decimal | None = None
-    v_icms: Decimal | None = None
-
-    v_bc_st: Decimal | None = None
-    p_icms_st: Decimal | None = None
-    v_icms_st: Decimal | None = None
-
-
-class PIS(BaseModel):
-    cst: str | None = None
-    v_bc: Decimal | None = None
-    p_pis: Decimal | None = None
-    v_pis: Decimal | None = None
-
-    # Variantes calculadas por quantidade.
-    q_bc_prod: Decimal | None = None
-    v_aliq_prod: Decimal | None = None
-
-
-class COFINS(BaseModel):
-    cst: str | None = None
-    v_bc: Decimal | None = None
-    p_cofins: Decimal | None = None
-    v_cofins: Decimal | None = None
-
-    # Variantes calculadas por quantidade.
-    q_bc_prod: Decimal | None = None
-    v_aliq_prod: Decimal | None = None
-
-
-class IPI(BaseModel):
-    cst: str | None = None
-    v_bc: Decimal | None = None
-    p_ipi: Decimal | None = None
-    v_ipi: Decimal | None = None
-
-    # Variante tributada por unidade.
-    q_unid: Decimal | None = None
-    v_unid: Decimal | None = None
-
-
-class IBSCBS(BaseModel):
-    cst: str | None = None
-    c_class_trib: str | None = None
-
-
-class Taxation(BaseModel):
-    icms: ICMS | None = None
-    pis: PIS | None = None
-    cofins: COFINS | None = None
-    ipi: IPI | None = None
-    ibs_cbs: IBSCBS | None = None
-
-
 class NFeItem(BaseModel):
     n_item: int
     product: Product
-    taxation: Taxation | None = None
+    # Cópia fiel do <imposto> do XML. Ex.:
+    # {"ICMS": {"grupo": "ICMS00", "CST": "00", "vICMS": "18.00"}, "PIS": {...}}
+    # Os valores ficam como string para não perder precisão.
+    impostos: dict[str, Any] = Field(default_factory=dict)
 
 
 class NFe(BaseModel):
@@ -98,3 +42,5 @@ class NFe(BaseModel):
     emit: Person
     dest: Person
     items: list[NFeItem]
+    # Cópia fiel do <total> do XML (ICMSTot, ISSQNtot, retTrib, IBSCBSTot...).
+    totais: dict[str, Any] = Field(default_factory=dict)

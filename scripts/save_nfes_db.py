@@ -1,427 +1,303 @@
 # Run with: python -m scripts.save_nfes_db
 
 import logging
-from datetime import datetime
-from decimal import Decimal
+import os
+import re
+import signal
+from concurrent.futures import ProcessPoolExecutor
+from itertools import islice
 from pathlib import Path
 
-from sqlalchemy import (
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    UniqueConstraint,
-    create_engine,
-    event,
-    select,
-)
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy import insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import Session
 
+from database import NFeItemModel, NFeModel, NFeXML, Pessoa, create_db_engine
 from logger import setup_logging
 from parser.nfe_parser import NFeParser
 
 XML_ROOT = Path("/home/thayron/servidor_xml")
-XML_DIR = XML_ROOT
-
-DB_PATH = Path("nfes.db")
-BATCH_SIZE = 500
+BATCH_SIZE = 300  # arquivos por lote (e por commit)
 CANCELED_SUFFIX = "_CANCELADA"
 
-setup_logging()
+# Só estes anos são importados.
+ANOS = {2025, 2026}
+
 logger = logging.getLogger(__name__)
 
 
-class DuplicateNFeError(Exception):
-    """Indica que a chave de acesso já está cadastrada."""
-
-
-class DecimalText(TypeDecorator):
-    """Armazena Decimal como texto para preservar sua precisão no SQLite."""
-
-    impl = String
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        return None if value is None else str(value)
-
-    def process_result_value(self, value, dialect):
-        return None if value is None else Decimal(value)
-
-
-def dec():
-    return mapped_column(DecimalText, nullable=True)
-
-
-def txt():
-    return mapped_column(String, nullable=True)
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class Pessoa(Base):
-    __tablename__ = "pessoa"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    cnpj: Mapped[str] = mapped_column(String, unique=True, index=True)
-    nome: Mapped[str] = mapped_column(String)
-    uf: Mapped[str | None] = txt()
-
-
-class NFeModel(Base):
-    __tablename__ = "nfe"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    ch_nfe: Mapped[str] = mapped_column(String(44), unique=True, index=True)
-    n_nf: Mapped[str] = mapped_column(String)
-    serie: Mapped[str] = mapped_column(String)
-    dh_emi: Mapped[datetime] = mapped_column(DateTime)
-
-    emit_id: Mapped[int | None] = mapped_column(ForeignKey("pessoa.id"))
-    dest_id: Mapped[int | None] = mapped_column(ForeignKey("pessoa.id"))
-
-    # Caminho relativo à raiz XML_ROOT; o XML não é armazenado no banco.
-    xml_path: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-
-    emit: Mapped[Pessoa | None] = relationship(foreign_keys=[emit_id])
-    dest: Mapped[Pessoa | None] = relationship(foreign_keys=[dest_id])
-
-    items: Mapped[list["NFeItemModel"]] = relationship(
-        back_populates="nfe",
-        cascade="all, delete-orphan",
-    )
-
-
-class NFeItemModel(Base):
-    __tablename__ = "nfe_item"
-    __table_args__ = (UniqueConstraint("nfe_id", "n_item"),)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    nfe_id: Mapped[int] = mapped_column(ForeignKey("nfe.id"), index=True)
-    n_item: Mapped[int] = mapped_column(Integer)
-
-    # Produto
-    c_prod: Mapped[str] = mapped_column(String)
-    c_ean: Mapped[str | None] = txt()
-    x_prod: Mapped[str] = mapped_column(String)
-    ncm: Mapped[str | None] = txt()
-    cest: Mapped[str | None] = txt()
-    cfop: Mapped[str] = mapped_column(String)
-    u_com: Mapped[str] = mapped_column(String)
-    q_com: Mapped[Decimal] = mapped_column(DecimalText)
-    v_un_com: Mapped[Decimal] = mapped_column(DecimalText)
-    v_prod: Mapped[Decimal] = mapped_column(DecimalText)
-    v_desc: Mapped[Decimal | None] = dec()
-
-    # ICMS
-    icms_orig: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    icms_cst: Mapped[str | None] = txt()
-    icms_csosn: Mapped[str | None] = txt()
-    icms_v_bc: Mapped[Decimal | None] = dec()
-    icms_p_icms: Mapped[Decimal | None] = dec()
-    icms_v_icms: Mapped[Decimal | None] = dec()
-    icms_v_bc_st: Mapped[Decimal | None] = dec()
-    icms_p_icms_st: Mapped[Decimal | None] = dec()
-    icms_v_icms_st: Mapped[Decimal | None] = dec()
-
-    # PIS
-    pis_cst: Mapped[str | None] = txt()
-    pis_v_bc: Mapped[Decimal | None] = dec()
-    pis_p_pis: Mapped[Decimal | None] = dec()
-    pis_v_pis: Mapped[Decimal | None] = dec()
-    pis_q_bc_prod: Mapped[Decimal | None] = dec()
-    pis_v_aliq_prod: Mapped[Decimal | None] = dec()
-
-    # COFINS
-    cofins_cst: Mapped[str | None] = txt()
-    cofins_v_bc: Mapped[Decimal | None] = dec()
-    cofins_p_cofins: Mapped[Decimal | None] = dec()
-    cofins_v_cofins: Mapped[Decimal | None] = dec()
-    cofins_q_bc_prod: Mapped[Decimal | None] = dec()
-    cofins_v_aliq_prod: Mapped[Decimal | None] = dec()
-
-    # IPI
-    ipi_cst: Mapped[str | None] = txt()
-    ipi_v_bc: Mapped[Decimal | None] = dec()
-    ipi_p_ipi: Mapped[Decimal | None] = dec()
-    ipi_v_ipi: Mapped[Decimal | None] = dec()
-    ipi_q_unid: Mapped[Decimal | None] = dec()
-    ipi_v_unid: Mapped[Decimal | None] = dec()
-
-    # IBS/CBS
-    ibscbs_cst: Mapped[str | None] = txt()
-    ibscbs_c_class_trib: Mapped[str | None] = txt()
-
-    nfe: Mapped[NFeModel] = relationship(back_populates="items")
-
-
-def _g(obj, attr):
-    return getattr(obj, attr, None) if obj is not None else None
-
-
-def get_or_create_pessoa(session: Session, person):
-    if person is None or not person.cnpj:
-        return None
-
-    pessoa = session.scalar(select(Pessoa).where(Pessoa.cnpj == person.cnpj))
-
-    if pessoa is None:
-        pessoa = Pessoa(
-            cnpj=person.cnpj,
-            nome=person.x_nome,
-            uf=person.uf,
-        )
-        session.add(pessoa)
-        session.flush()
-
-    return pessoa
-
-
-def build_item(item, nfe_id: int):
-    p = item.product
-    t = item.taxation
-
-    icms = _g(t, "icms")
-    pis = _g(t, "pis")
-    cofins = _g(t, "cofins")
-    ipi = _g(t, "ipi")
-    ibs = _g(t, "ibs_cbs")
-
-    return NFeItemModel(
-        nfe_id=nfe_id,
-        n_item=item.n_item,
-        c_prod=p.c_prod,
-        c_ean=p.c_ean,
-        x_prod=p.x_prod,
-        ncm=p.ncm,
-        cest=p.cest,
-        cfop=p.cfop,
-        u_com=p.u_com,
-        q_com=p.q_com,
-        v_un_com=p.v_un_com,
-        v_prod=p.v_prod,
-        v_desc=p.v_desc,
-        icms_orig=_g(icms, "orig"),
-        icms_cst=_g(icms, "cst"),
-        icms_csosn=_g(icms, "csosn"),
-        icms_v_bc=_g(icms, "v_bc"),
-        icms_p_icms=_g(icms, "p_icms"),
-        icms_v_icms=_g(icms, "v_icms"),
-        icms_v_bc_st=_g(icms, "v_bc_st"),
-        icms_p_icms_st=_g(icms, "p_icms_st"),
-        icms_v_icms_st=_g(icms, "v_icms_st"),
-        pis_cst=_g(pis, "cst"),
-        pis_v_bc=_g(pis, "v_bc"),
-        pis_p_pis=_g(pis, "p_pis"),
-        pis_v_pis=_g(pis, "v_pis"),
-        pis_q_bc_prod=_g(pis, "q_bc_prod"),
-        pis_v_aliq_prod=_g(pis, "v_aliq_prod"),
-        cofins_cst=_g(cofins, "cst"),
-        cofins_v_bc=_g(cofins, "v_bc"),
-        cofins_p_cofins=_g(cofins, "p_cofins"),
-        cofins_v_cofins=_g(cofins, "v_cofins"),
-        cofins_q_bc_prod=_g(cofins, "q_bc_prod"),
-        cofins_v_aliq_prod=_g(cofins, "v_aliq_prod"),
-        ipi_cst=_g(ipi, "cst"),
-        ipi_v_bc=_g(ipi, "v_bc"),
-        ipi_p_ipi=_g(ipi, "p_ipi"),
-        ipi_v_ipi=_g(ipi, "v_ipi"),
-        ipi_q_unid=_g(ipi, "q_unid"),
-        ipi_v_unid=_g(ipi, "v_unid"),
-        ibscbs_cst=_g(ibs, "cst"),
-        ibscbs_c_class_trib=_g(ibs, "c_class_trib"),
-    )
-
-
-def save_nfe(session: Session, nfe, xml_path: str):
-    # Cabeçalho, pessoas e itens participam da mesma operação lógica.
-    with session.begin_nested():
-        emit = get_or_create_pessoa(session, nfe.emit)
-        dest = get_or_create_pessoa(session, nfe.dest)
-
-        stmt = (
-            sqlite_insert(NFeModel)
-            .values(
-                ch_nfe=nfe.ch_nfe,
-                n_nf=nfe.n_nf,
-                serie=nfe.serie,
-                dh_emi=nfe.dh_emi,
-                emit_id=emit.id if emit else None,
-                dest_id=dest.id if dest else None,
-                xml_path=xml_path,
-            )
-            .on_conflict_do_nothing(index_elements=[NFeModel.ch_nfe])
-            .returning(NFeModel.id)
-        )
-
-        nfe_id = session.scalar(stmt)
-
-        if nfe_id is None:
-            raise DuplicateNFeError(nfe.ch_nfe)
-
-        session.add_all(build_item(item, nfe_id) for item in nfe.items)
-
-        # Detecta erros dos itens ainda dentro do savepoint.
-        session.flush()
-
-
-def create_db_engine():
-    engine = create_engine(f"sqlite:///{DB_PATH}")
-
-    @event.listens_for(engine, "connect")
-    def _on_connect(dbapi_conn, _):
-        dbapi_conn.isolation_level = None
-        cur = dbapi_conn.cursor()
-        cur.execute("PRAGMA journal_mode=WAL")
-        cur.execute("PRAGMA synchronous=NORMAL")
-        cur.execute("PRAGMA foreign_keys=ON")
-        cur.close()
-
-    @event.listens_for(engine, "begin")
-    def _on_begin(conn):
-        conn.exec_driver_sql("BEGIN")
-
-    Base.metadata.create_all(engine)
-    return engine
+# ------------------------------------------------------------------ leitura
 
 
 def iter_xml_files():
-    """Percorre os XMLs sem armazenar todos os caminhos em uma lista."""
-    for path in XML_DIR.rglob("*"):
-        if path.is_file() and path.suffix.lower() == ".xml":
-            yield path
+    """
+    Percorre os XMLs sem armazenar todos os caminhos em uma lista.
+    Pastas nomeadas com um ano (4 dígitos) fora de ANOS nem são abertas.
+    """
+    anos = {str(ano) for ano in ANOS}
+
+    for root, dirs, files in os.walk(XML_ROOT):
+        dirs[:] = [d for d in dirs if not (re.fullmatch(r"\d{4}", d) and d not in anos)]
+
+        for name in files:
+            if name.lower().endswith(".xml"):
+                yield Path(root) / name
+
+
+def _ignore_sigint():
+    """
+    Ctrl+C vai para o grupo inteiro de processos. Os de leitura o ignoram:
+    quem trata a interrupção é o processo principal.
+    """
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def batched(iterable, size):
+    iterator = iter(iterable)
+    while batch := list(islice(iterator, size)):
+        yield batch
+
+
+def parse_file(path_str):
+    """
+    Roda nos processos filhos.
+    Retorna (caminho, NFe | None, bytes do XML | None, erro | None).
+    """
+    try:
+        raw = Path(path_str).read_bytes()
+
+        parser = NFeParser(path_str, raw=raw)
+        parser.read_nfe()
+        nfe = parser.extract_data()
+
+        if nfe is None:
+            return path_str, None, None, "Falha ao extrair a NF-e"
+
+        return path_str, nfe, raw, None
+
+    except Exception as exc:
+        return path_str, None, None, f"{type(exc).__name__}: {exc}"
+
+
+# ------------------------------------------------------------------ gravação
+
+
+def save_batch(session, entries):
+    """
+    Grava várias NF-es de uma vez. `entries` = [(nfe, xml_path, xml)].
+    Retorna quantas NF-es foram realmente inseridas.
+    """
+    # 1. Pessoas (upsert)
+    pessoas = {}
+    for nfe, _, _ in entries:
+        for person in (nfe.emit, nfe.dest):
+            if person.cnpj:
+                pessoas.setdefault(
+                    person.cnpj,
+                    {"cnpj": person.cnpj, "nome": person.x_nome, "uf": person.uf},
+                )
+
+    pessoa_ids = {}
+    if pessoas:
+        session.execute(
+            pg_insert(Pessoa)
+            .values(list(pessoas.values()))
+            .on_conflict_do_nothing(index_elements=[Pessoa.cnpj])
+        )
+        rows = session.execute(
+            select(Pessoa.cnpj, Pessoa.id).where(Pessoa.cnpj.in_(list(pessoas)))
+        )
+        pessoa_ids = {cnpj: id_ for cnpj, id_ in rows}
+
+    # 2. Cabeçalhos. O RETURNING só devolve o que foi inserido de fato.
+    headers = [
+        {
+            "ch_nfe": nfe.ch_nfe,
+            "n_nf": str(nfe.n_nf),
+            "serie": str(nfe.serie),
+            "dh_emi": nfe.dh_emi,
+            "emit_id": pessoa_ids.get(nfe.emit.cnpj),
+            "dest_id": pessoa_ids.get(nfe.dest.cnpj),
+            "xml_path": xml_path,
+            "totais": nfe.totais,
+        }
+        for nfe, xml_path, _ in entries
+    ]
+
+    stmt = (
+        pg_insert(NFeModel)
+        .values(headers)
+        .on_conflict_do_nothing(index_elements=[NFeModel.ch_nfe])
+        .returning(NFeModel.id, NFeModel.ch_nfe)
+    )
+    inserted = {ch_nfe: id_ for id_, ch_nfe in session.execute(stmt)}
+
+    # 3. Itens, somente das NF-es inseridas agora.
+    items = []
+    xmls = []
+    for nfe, _, xml in entries:
+        nfe_id = inserted.get(nfe.ch_nfe)
+        if nfe_id is None:
+            continue
+
+        xmls.append({"nfe_id": nfe_id, "xml": xml})
+
+        for item in nfe.items:
+            p = item.product
+            items.append(
+                {
+                    "nfe_id": nfe_id,
+                    "n_item": item.n_item,
+                    "c_prod": p.c_prod,
+                    "c_ean": p.c_ean,
+                    "x_prod": p.x_prod,
+                    "ncm": p.ncm,
+                    "cest": p.cest,
+                    "cfop": p.cfop,
+                    "u_com": p.u_com,
+                    "q_com": p.q_com,
+                    "v_un_com": p.v_un_com,
+                    "v_prod": p.v_prod,
+                    "v_desc": p.v_desc,
+                    "impostos": item.impostos,
+                }
+            )
+
+    if items:
+        session.execute(insert(NFeItemModel), items)
+
+    if xmls:
+        session.execute(insert(NFeXML), xmls)
+
+    return len(inserted)
+
+
+def persist(session, entries):
+    """
+    Grava o lote e confirma. Se o lote falhar, tenta uma NF-e por vez
+    para que um único XML problemático não derrube as demais.
+    Retorna (salvas, falhas).
+    """
+    if not entries:
+        return 0, 0
+
+    try:
+        saved = save_batch(session, entries)
+        session.commit()
+        return saved, 0
+    except Exception:
+        session.rollback()
+        logger.warning("Lote falhou; gravando uma NF-e por vez.", exc_info=True)
+
+    saved = failed = 0
+    for entry in entries:
+        try:
+            saved += save_batch(session, [entry])
+            session.commit()
+        except Exception:
+            session.rollback()
+            failed += 1
+            logger.exception("Falha ao gravar %s", entry[1])
+
+    return saved, failed
+
+
+# ---------------------------------------------------------------------- main
 
 
 def main():
-    if not XML_DIR.is_dir():
-        logger.error("Pasta não encontrada: %s", XML_DIR.resolve())
+    setup_logging()
+
+    if not XML_ROOT.is_dir():
+        logger.error("Pasta não encontrada: %s", XML_ROOT.resolve())
         return
 
     engine = create_db_engine()
+    workers = max(1, (os.cpu_count() or 2) - 1)
 
-    files_seen = 0
-    saved = 0
-    duplicates = 0
-    failed = 0
-    canceled = 0
-    pending_files = 0
+    files_seen = saved = duplicates = failed = canceled = skipped = outside = 0
 
-    print(f"Iniciando leitura de XMLs em: {XML_DIR.resolve()}")
-    print(f"Banco SQLite: {DB_PATH.resolve()}")
+    print(f"Lendo XMLs em: {XML_ROOT.resolve()}")
+    print(f"Processos de leitura: {workers} | Lote: {BATCH_SIZE} arquivos")
 
     try:
-        with Session(engine) as session:
-            try:
-                for path in iter_xml_files():
-                    files_seen += 1
-                    pending_files += 1
+        with (
+            Session(engine) as session,
+            ProcessPoolExecutor(workers, initializer=_ignore_sigint) as pool,
+        ):
+            for batch in batched(iter_xml_files(), BATCH_SIZE):
+                files_seen += len(batch)
 
-                    try:
-                        if path.stem.upper().endswith(CANCELED_SUFFIX):
-                            canceled += 1
-                            continue
+                candidates = []
+                for path in batch:
+                    if path.stem.upper().endswith(CANCELED_SUFFIX):
+                        canceled += 1
+                    else:
+                        candidates.append(path)
 
-                        relative_path = path.relative_to(XML_ROOT).as_posix()
+                relative = {
+                    str(p): p.relative_to(XML_ROOT).as_posix() for p in candidates
+                }
 
-                        # 1. Verifica o caminho antes de abrir o XML.
-                        existing_id = session.scalar(
-                            select(NFeModel.id).where(
-                                NFeModel.xml_path == relative_path
-                            )
+                # Pula arquivos já importados (consulta só os do lote).
+                known = set(
+                    session.scalars(
+                        select(NFeModel.xml_path).where(
+                            NFeModel.xml_path.in_(list(relative.values()))
                         )
+                    )
+                )
+                session.rollback()  # encerra a transação de leitura
 
-                        if existing_id is not None:
-                            duplicates += 1
-                            continue
+                todo = [p for p, rel in relative.items() if rel not in known]
+                skipped += len(relative) - len(todo)
 
-                        # 2. Processa somente arquivos ainda não importados.
-                        parser = NFeParser(str(path))
-                        parser.read_nfe()
-                        nfe = parser.extract_data()
-
-                        if not nfe:
-                            failed += 1
-                            logger.warning(
-                                "Não foi possível extrair: %s",
-                                path,
-                            )
-                            continue
-
-                        # 3. Verifica se a chave já existe no banco.
-                        existing_key = session.scalar(
-                            select(NFeModel.id).where(NFeModel.ch_nfe == nfe.ch_nfe)
-                        )
-
-                        if existing_key is not None:
-                            duplicates += 1
-                            continue
-
-                        try:
-                            save_nfe(session, nfe, relative_path)
-                        except DuplicateNFeError:
-                            # A restrição UNIQUE protege contra duplicatas.
-                            duplicates += 1
-                        else:
-                            saved += 1
-
-                    except Exception:
+                unique = {}
+                for path_str, nfe, xml, error in pool.map(
+                    parse_file, todo, chunksize=8
+                ):
+                    if nfe is None:
                         failed += 1
-                        logger.exception(
-                            "Falha ao processar %s",
-                            path,
-                        )
+                        logger.warning("Falha ao ler %s: %s", path_str, error)
+                    elif nfe.dh_emi.year not in ANOS:
+                        outside += 1
+                    elif nfe.ch_nfe in unique:
+                        duplicates += 1
+                    else:
+                        unique[nfe.ch_nfe] = (nfe, relative[path_str], xml)
 
-                    finally:
-                        if pending_files >= BATCH_SIZE:
-                            try:
-                                session.commit()
-                            except Exception:
-                                session.rollback()
-                                logger.exception("Falha ao confirmar o lote no banco.")
-                                raise
+                entries = list(unique.values())
+                batch_saved, batch_failed = persist(session, entries)
 
-                            pending_files = 0
+                saved += batch_saved
+                failed += batch_failed
+                duplicates += len(entries) - batch_saved - batch_failed
 
-                            logger.info(
-                                "Arquivos lidos: %s | Salvas: %s | "
-                                "Duplicadas: %s | Canceladas: %s | "
-                                "Falhas: %s",
-                                files_seen,
-                                saved,
-                                duplicates,
-                                canceled,
-                                failed,
-                            )
-
-                # Confirma o último lote, mesmo que incompleto.
-                session.commit()
-
-            except KeyboardInterrupt:
-                logger.warning(
-                    "Interrupção solicitada. Tentando confirmar "
-                    "as alterações pendentes..."
+                logger.info(
+                    "Lidos: %s | Salvas: %s | Já importados: %s | "
+                    "Duplicadas: %s | Canceladas: %s | Falhas: %s",
+                    files_seen,
+                    saved,
+                    skipped,
+                    duplicates,
+                    canceled,
+                    failed,
                 )
 
-                try:
-                    session.commit()
-                    logger.info("Lote pendente confirmado.")
-                except Exception:
-                    session.rollback()
-                    logger.exception("Não foi possível confirmar o lote pendente.")
+    except KeyboardInterrupt:
+        logger.warning("Interrompido. Os lotes anteriores já foram confirmados.")
 
     finally:
         engine.dispose()
 
     print(
-        f"\nConcluído: {files_seen} arquivo(s) XML percorrido(s).\n"
-        f"NF-e salva(s) nesta execução: {saved}\n"
+        f"\nArquivos percorridos: {files_seen}\n"
+        f"NF-e salvas: {saved}\n"
+        f"Já importadas (puladas): {skipped}\n"
         f"Duplicadas: {duplicates}\n"
         f"Canceladas ignoradas: {canceled}\n"
-        f"Falhas: {failed}\n"
-        f"Banco: {DB_PATH.resolve()}"
+        f"Emitidas fora de {min(ANOS)}-{max(ANOS)}: {outside}\n"
+        f"Falhas: {failed}"
     )
 
 

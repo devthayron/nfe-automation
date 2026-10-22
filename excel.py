@@ -1,4 +1,63 @@
+from decimal import Decimal, InvalidOperation
+
 import pandas as pd
+
+# (imposto no JSON, campo no JSON, coluna no relatório, é numérico?)
+TAX_COLUMNS = [
+    ("ICMS", "grupo", "ICMS_grupo", False),
+    ("ICMS", "orig", "ICMS_orig", False),
+    ("ICMS", "CST", "ICMS_CST", False),
+    ("ICMS", "CSOSN", "ICMS_CSOSN", False),
+    ("ICMS", "vBC", "ICMS_vBC", True),
+    ("ICMS", "pICMS", "ICMS_pICMS", True),
+    ("ICMS", "vICMS", "ICMS_vICMS", True),
+    ("ICMS", "vBCST", "ICMS_vBCST", True),
+    ("ICMS", "pICMSST", "ICMS_pICMSST", True),
+    ("ICMS", "vICMSST", "ICMS_vICMSST", True),
+    ("PIS", "grupo", "PIS_grupo", False),
+    ("PIS", "CST", "PIS_CST", False),
+    ("PIS", "vBC", "PIS_vBC", True),
+    ("PIS", "pPIS", "PIS_pPIS", True),
+    ("PIS", "vPIS", "PIS_vPIS", True),
+    ("PIS", "qBCProd", "PIS_qBCProd", True),
+    ("PIS", "vAliqProd", "PIS_vAliqProd", True),
+    ("COFINS", "grupo", "COFINS_grupo", False),
+    ("COFINS", "CST", "COFINS_CST", False),
+    ("COFINS", "vBC", "COFINS_vBC", True),
+    ("COFINS", "pCOFINS", "COFINS_pCOFINS", True),
+    ("COFINS", "vCOFINS", "COFINS_vCOFINS", True),
+    ("COFINS", "qBCProd", "COFINS_qBCProd", True),
+    ("COFINS", "vAliqProd", "COFINS_vAliqProd", True),
+    ("IPI", "grupo", "IPI_grupo", False),
+    ("IPI", "CST", "IPI_CST", False),
+    ("IPI", "vBC", "IPI_vBC", True),
+    ("IPI", "pIPI", "IPI_pIPI", True),
+    ("IPI", "vIPI", "IPI_vIPI", True),
+    ("IPI", "qUnid", "IPI_qUnid", True),
+    ("IPI", "vUnid", "IPI_vUnid", True),
+    ("IBSCBS", "CST", "IBSCBS_CST", False),
+    ("IBSCBS", "cClassTrib", "IBSCBS_cClassTrib", False),
+]
+
+
+def _to_decimal(value):
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
+def _tax_columns(impostos):
+    row = {}
+
+    for tax, field, column, numeric in TAX_COLUMNS:
+        group = impostos.get(tax)
+        value = group.get(field) if isinstance(group, dict) else None
+        row[column] = _to_decimal(value) if numeric else value
+
+    return row
 
 
 def generate_dataframe(nfes):
@@ -7,88 +66,35 @@ def generate_dataframe(nfes):
     for nfe in nfes:
         for item in nfe.items:
             product = item.product
-            taxation = item.taxation
-
-            icms = taxation.icms if taxation else None
-            pis = taxation.pis if taxation else None
-            cofins = taxation.cofins if taxation else None
-            ipi = taxation.ipi if taxation else None
-            ibs_cbs = taxation.ibs_cbs if taxation else None
 
             rows.append(
                 {
-                    "UF_Loja": str(nfe.dest.uf),
-                    "CNPJ_Loja": str(nfe.dest.cnpj),
+                    "UF_Loja": nfe.dest.uf,
+                    "CNPJ_Loja": nfe.dest.cnpj,
                     # FORNECEDOR
-                    "CNPJ_Fornecedor": str(nfe.emit.cnpj),
+                    "CNPJ_Fornecedor": nfe.emit.cnpj,
                     "Fornecedor": nfe.emit.x_nome,
-                    "UF_Fornecedor": str(nfe.emit.uf),
+                    "UF_Fornecedor": nfe.emit.uf,
                     # NF-e
-                    "chave_acesso": str(nfe.ch_nfe),
+                    "chave_acesso": nfe.ch_nfe,
                     "nNF": str(nfe.n_nf),
                     "serie": str(nfe.serie),
                     "dhEmi": nfe.dh_emi.strftime("%d/%m/%Y %H:%M:%S"),
                     # ITEM
                     "nItem": item.n_item,
-                    "cProd": str(product.c_prod),
-                    "cEAN": (str(product.c_ean) if product.c_ean is not None else None),
+                    "cProd": product.c_prod,
+                    "cEAN": product.c_ean,
                     "xProd": product.x_prod,
-                    "NCM": str(product.ncm),
-                    "CEST": (str(product.cest) if product.cest is not None else None),
-                    "CFOP": str(product.cfop),
-                    "uCom": str(product.u_com),
+                    "NCM": product.ncm,
+                    "CEST": product.cest,
+                    "CFOP": product.cfop,
+                    "uCom": product.u_com,
                     "qCom": product.q_com,
                     "vUnCom": product.v_un_com,
                     "vProd": product.v_prod,
                     "vDesc": product.v_desc,
-                    # ICMS
-                    "ICMS_orig": icms.orig if icms else None,
-                    "ICMS_CST": (
-                        str(icms.cst) if icms and icms.cst is not None else None
-                    ),
-                    "ICMS_CSOSN": (
-                        str(icms.csosn) if icms and icms.csosn is not None else None
-                    ),
-                    "ICMS_vBC": icms.v_bc if icms else None,
-                    "ICMS_pICMS": icms.p_icms if icms else None,
-                    "ICMS_vICMS": icms.v_icms if icms else None,
-                    "ICMS_vBCST": icms.v_bc_st if icms else None,
-                    "ICMS_pICMSST": icms.p_icms_st if icms else None,
-                    "ICMS_vICMSST": icms.v_icms_st if icms else None,
-                    # PIS
-                    "PIS_CST": (str(pis.cst) if pis and pis.cst is not None else None),
-                    "PIS_vBC": pis.v_bc if pis else None,
-                    "PIS_pPIS": pis.p_pis if pis else None,
-                    "PIS_vPIS": pis.v_pis if pis else None,
-                    "PIS_qBCProd": pis.q_bc_prod if pis else None,
-                    "PIS_vAliqProd": pis.v_aliq_prod if pis else None,
-                    # COFINS
-                    "COFINS_CST": (
-                        str(cofins.cst) if cofins and cofins.cst is not None else None
-                    ),
-                    "COFINS_vBC": cofins.v_bc if cofins else None,
-                    "COFINS_pCOFINS": cofins.p_cofins if cofins else None,
-                    "COFINS_vCOFINS": cofins.v_cofins if cofins else None,
-                    "COFINS_qBCProd": cofins.q_bc_prod if cofins else None,
-                    "COFINS_vAliqProd": cofins.v_aliq_prod if cofins else None,
-                    # IPI
-                    "IPI_CST": (str(ipi.cst) if ipi and ipi.cst is not None else None),
-                    "IPI_vBC": ipi.v_bc if ipi else None,
-                    "IPI_pIPI": ipi.p_ipi if ipi else None,
-                    "IPI_vIPI": ipi.v_ipi if ipi else None,
-                    "IPI_qUnid": ipi.q_unid if ipi else None,
-                    "IPI_vUnid": ipi.v_unid if ipi else None,
-                    # IBS / CBS
-                    "IBSCBS_CST": (
-                        str(ibs_cbs.cst)
-                        if ibs_cbs and ibs_cbs.cst is not None
-                        else None
-                    ),
-                    "IBSCBS_cClassTrib": (
-                        str(ibs_cbs.c_class_trib)
-                        if ibs_cbs and ibs_cbs.c_class_trib is not None
-                        else None
-                    ),
+                    # IMPOSTOS (lidos do JSON)
+                    **_tax_columns(item.impostos),
                 }
             )
 
