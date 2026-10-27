@@ -3,10 +3,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from sqlalchemy import text
 
-from excel import TAX_COLUMNS
+from services.report_service import TAX_COLUMNS
 
-# O banco guarda dh_emi como timestamptz (UTC). O relatório mostra o horário
-# local da emissão, como o Excel gerado diretamente dos XMLs.
 TIMEZONE = "America/Fortaleza"
 
 # (coluna no relatório, expressão SQL). Mantém nomes e ordem compatíveis com
@@ -81,6 +79,20 @@ def get_date_range(engine):
 
     tz = ZoneInfo(TIMEZONE)
     return first.astimezone(tz).date(), last.astimezone(tz).date()
+
+
+def get_xml(engine, ch_nfe: str) -> bytes | None:
+    """Devolve os bytes originais do XML de uma NF-e, ou None se não existir."""
+    with engine.connect() as conn:
+        data = conn.execute(
+            text(
+                "SELECT x.xml FROM nfe_xml x "
+                "JOIN nfe n ON n.id = x.nfe_id WHERE n.ch_nfe = :ch"
+            ),
+            {"ch": ch_nfe},
+        ).scalar()
+
+    return bytes(data) if data is not None else None
 
 
 def load_dataframe_from_db(engine, inicio, fim, limite=200_000):

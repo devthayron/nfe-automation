@@ -5,10 +5,10 @@ from datetime import date, datetime
 import streamlit as st
 from dotenv import load_dotenv
 
-from excel import generate_dataframe
 from interface import display_report
 from logger import setup_logging
 from services.nfe_service import process_xmls
+from services.report_service import generate_dataframe
 
 load_dotenv()
 setup_logging()
