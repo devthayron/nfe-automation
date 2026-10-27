@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from dotenv import load_dotenv
 from sqlalchemy import (
+    Boolean,
     Computed,
     DateTime,
     ForeignKey,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     create_engine,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -54,15 +56,22 @@ class NFeModel(Base):
     emit_id: Mapped[int | None] = mapped_column(ForeignKey("pessoa.id"))
     dest_id: Mapped[int | None] = mapped_column(ForeignKey("pessoa.id"))
 
-    # Caminho relativo à raiz dos XMLs; o XML não é armazenado no banco.
+    # Caminho relativo à raiz dos XMLs (usado para não reimportar o mesmo arquivo).
     xml_path: Mapped[str] = mapped_column(String, unique=True)
+
+    # Marcador operacional baseado no sufixo _CANCELADA do nome do arquivo.
+    # Não equivale, por si só, a uma consulta de situação na SEFAZ.
+    cancelado: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
 
     # <total> do XML completo (ICMSTot, ISSQNtot, retTrib, IBSCBSTot...)
     totais: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
-    # Colunas geradas a partir de totais->ICMSTot: só o que serve para somar
-    # e conferir. O restante do <total> (frete, desconto, bases, FCP,
-    # vTotTrib...) é lido direto de `totais`.
+    # Colunas geradas a partir de totais->ICMSTot.
     v_nf: Mapped[Decimal | None] = _total_numeric("vNF")
     v_prod: Mapped[Decimal | None] = _total_numeric("vProd")
     v_icms: Mapped[Decimal | None] = _total_numeric("vICMS")
@@ -117,15 +126,8 @@ class NFeItemModel(Base):
     v_prod: Mapped[Decimal] = mapped_column(Numeric)
     v_desc: Mapped[Decimal | None] = mapped_column(Numeric)
 
-    # Impostos: cópia do XML
     impostos: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
-    # Colunas geradas (o Postgres copia do JSONB). Só o que serve para
-    # filtrar ou somar no banco; o restante é lido direto de `impostos`.
-    # Ficam NULL quando a variante do imposto não tem o campo
-    # (ex.: ICMS60 não tem vICMS).
-
-    # Filtros
     icms_cst_csosn: Mapped[str | None] = mapped_column(
         String,
         Computed(
@@ -136,32 +138,30 @@ class NFeItemModel(Base):
     ibscbs_cst: Mapped[str | None] = _json_text("IBSCBS", "CST")
     ibscbs_c_class_trib: Mapped[str | None] = _json_text("IBSCBS", "cClassTrib")
 
-    # Somas
-    icms_v_icms: Mapped[Decimal | None] = _json_numeric("ICMS", "vICMS")
-    icms_v_icms_st: Mapped[Decimal | None] = _json_numeric("ICMS", "vICMSST")
-    pis_v_pis: Mapped[Decimal | None] = _json_numeric("PIS", "vPIS")
-    cofins_v_cofins: Mapped[Decimal | None] = _json_numeric("COFINS", "vCOFINS")
-    ipi_v_ipi: Mapped[Decimal | None] = _json_numeric("IPI", "vIPI")
+    v_icms: Mapped[Decimal | None] = _json_numeric("ICMS", "vICMS")
+    v_icms_st: Mapped[Decimal | None] = _json_numeric("ICMS", "vICMSST")
+    v_pis: Mapped[Decimal | None] = _json_numeric("PIS", "vPIS")
+    v_cofins: Mapped[Decimal | None] = _json_numeric("COFINS", "vCOFINS")
+    v_ipi: Mapped[Decimal | None] = _json_numeric("IPI", "vIPI")
 
     nfe: Mapped[NFeModel] = relationship(back_populates="items")
 
 
 class NFeXML(Base):
-    """
-    XML original da NF-e, byte a byte como veio no arquivo (encoding e
-    assinatura digital intactos). Valores grandes são comprimidos pelo
-    próprio Postgres (TOAST), sem nada a fazer no código.
-    """
+    """XML original da NF-e armazenado em bytes e relacionado pelo ID interno."""
 
     __tablename__ = "nfe_xml"
 
     nfe_id: Mapped[int] = mapped_column(
-        ForeignKey("nfe.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("nfe.id", ondelete="CASCADE"),
+        primary_key=True,
     )
     xml: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
 
 
 def create_db_engine():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL não está definida no ambiente/.env")
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     Base.metadata.create_all(engine)
     return engine

@@ -1,5 +1,6 @@
+import calendar
 import os
-from datetime import timedelta
+from datetime import date, datetime
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -9,16 +10,32 @@ from interface import display_report
 from logger import setup_logging
 from services.nfe_service import process_xmls
 
-load_dotenv()  # lê o .env (DATABASE_URL) antes de qualquer os.getenv
+load_dotenv()
 setup_logging()
 
-MAX_ROWS = 200_000
+MAX_ROWS = 10_000
+
+MESES = {
+    1: "Janeiro",
+    2: "Fevereiro",
+    3: "Março",
+    4: "Abril",
+    5: "Maio",
+    6: "Junho",
+    7: "Julho",
+    8: "Agosto",
+    9: "Setembro",
+    10: "Outubro",
+    11: "Novembro",
+    12: "Dezembro",
+}
 
 about = """
     Aplicação para processamento de XMLs de NF-e Modelo 55 e geração
     de relatórios estruturados para consulta e análise.
-    
-    Os arquivos XML são processados temporariamente e não são armazenados pela aplicação.
+
+    Os arquivos XML selecionados em uma pasta são processados temporariamente
+    pela aplicação. Na origem Banco de dados, os dados são consultados no PostgreSQL.
 
     **Status:** Em fase de testes.
 """
@@ -70,49 +87,73 @@ def load_from_folder():
 
 
 def load_from_db():
+    # Permite atualizar o intervalo de datas e invalidar os relatórios em cache.
+    if st.sidebar.button("Recarregar banco"):
+        load_report_from_db.clear()
+        get_date_range.clear()
+
     try:
         first, last = get_date_range()
     except Exception as exc:
         st.error(f"Não foi possível conectar ao banco: {exc}")
         return None
 
-    if first is None:
+    if first is None or last is None:
         st.warning("O banco não tem NF-es.")
         return None
 
-    # Por padrão, o último mês com NF-es no banco.
-    periodo = st.sidebar.date_input(
-        "Período de emissão",
-        value=(max(first, last - timedelta(days=30)), last),
-        min_value=first,
-        max_value=last,
-    )
+    # O serviço normalmente retorna date; também aceita datetime por segurança.
+    if isinstance(first, datetime):
+        first = first.date()
+    if isinstance(last, datetime):
+        last = last.date()
 
-    if st.sidebar.button("Recarregar banco"):
-        load_report_from_db.clear()
-        get_date_range.clear()
+    # Anos em ordem decrescente, do mais recente ao mais antigo.
+    anos = list(range(last.year, first.year - 1, -1))
+    ano = st.sidebar.selectbox("Ano de emissão", options=anos)
 
-    if len(periodo) != 2:
-        st.info("Selecione a data inicial e a final.")
+    # Só oferece os meses que intersectam o intervalo de datas existente no banco.
+    meses_disponiveis = []
+    for mes in range(1, 13):
+        primeiro_dia = date(ano, mes, 1)
+        ultimo_dia = date(ano, mes, calendar.monthrange(ano, mes)[1])
+        if ultimo_dia >= first and primeiro_dia <= last:
+            meses_disponiveis.append(mes)
+
+    if not meses_disponiveis:
+        st.warning("Não há meses disponíveis para o ano selecionado.")
         return None
 
-    df = load_report_from_db(*periodo)
+    # O padrão é o mês mais recente disponível no ano escolhido.
+    mes = st.sidebar.selectbox(
+        "Mês de emissão",
+        options=meses_disponiveis,
+        format_func=lambda valor: MESES[valor],
+        index=len(meses_disponiveis) - 1,
+        key=f"mes_emissao_{ano}",
+    )
+
+    # Consulta sempre um mês completo. O db_service trata o limite final
+    inicio = date(ano, mes, 1)
+    fim = date(ano, mes, calendar.monthrange(ano, mes)[1])
+    st.sidebar.caption(f"Período consultado: {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}")
+
+    df = load_report_from_db(inicio, fim)
 
     if df.empty:
-        st.warning("Nenhum item de NF-e no período selecionado.")
+        st.warning("Nenhum item de NF-e no mês selecionado.")
         return None
 
     if len(df) >= MAX_ROWS:
         st.warning(
             f"O resultado foi limitado a {MAX_ROWS:,} itens. "
-            "Reduza o período para ver tudo."
+            "O mês pode conter mais registros; os dados exibidos podem estar incompletos."
         )
 
     return df
 
 
 def main():
-
     st.set_page_config(
         page_title="NF-e Automation",
         layout="wide",
@@ -123,20 +164,16 @@ def main():
     st.caption("Leitura e extração de dados de XMLs de NF-e (Modelo 55)")
     st.sidebar.header("Origem dos dados")
 
-    # A opção de banco só aparece onde DATABASE_URL está configurada
-    # (por exemplo, não aparece no Streamlit Cloud público).
+    # A opção de banco só aparece quando DATABASE_URL está configurada.
     origens = ["Pasta de XMLs"]
     if os.getenv("DATABASE_URL"):
         origens.append("Banco de dados")
 
     origem = st.sidebar.radio("Origem", origens) if len(origens) > 1 else origens[0]
-
     df = load_from_folder() if origem == "Pasta de XMLs" else load_from_db()
 
     if df is None:
         return
-
-    # df = display_filters(df)
 
     display_report(df, df["chave_acesso"].nunique())
 

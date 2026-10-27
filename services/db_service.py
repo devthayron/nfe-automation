@@ -6,11 +6,11 @@ from sqlalchemy import text
 from excel import TAX_COLUMNS
 
 # O banco guarda dh_emi como timestamptz (UTC). O relatório mostra o horário
-# local da emissão, como o Excel gerado direto dos XMLs.
+# local da emissão, como o Excel gerado diretamente dos XMLs.
 TIMEZONE = "America/Fortaleza"
 
-# (coluna no relatório, expressão SQL). Mesmos nomes e ordem de
-# excel.generate_dataframe, para o display_report funcionar igual nas duas origens.
+# (coluna no relatório, expressão SQL). Mantém nomes e ordem compatíveis com
+# excel.generate_dataframe para display_report funcionar nas duas origens.
 BASE_COLUMNS = [
     ("UF_Loja", "d.uf"),
     ("CNPJ_Loja", "d.cnpj"),
@@ -57,7 +57,8 @@ def _build_sql():
         JOIN nfe n ON n.id = i.nfe_id
         LEFT JOIN pessoa e ON e.id = n.emit_id
         LEFT JOIN pessoa d ON d.id = n.dest_id
-        WHERE n.dh_emi >= (CAST(:inicio AS timestamp) AT TIME ZONE :tz)
+        WHERE n.cancelado = false
+          AND n.dh_emi >= (CAST(:inicio AS timestamp) AT TIME ZONE :tz)
           AND n.dh_emi <  ((CAST(:fim AS timestamp) + interval '1 day') AT TIME ZONE :tz)
         ORDER BY n.dh_emi, n.id, i.n_item
         LIMIT :limite
@@ -69,13 +70,13 @@ SQL = _build_sql()
 
 
 def get_date_range(engine):
-    """Menor e maior data de emissão no banco (horário local) ou (None, None)."""
+    """Retorna a menor e a maior data de emissão em horário local, ou (None, None)."""
     with engine.connect() as conn:
         first, last = conn.execute(
-            text("SELECT min(dh_emi), max(dh_emi) FROM nfe")
+            text("SELECT min(dh_emi), max(dh_emi) FROM nfe WHERE cancelado = false")
         ).one()
 
-    if first is None:
+    if first is None or last is None:
         return None, None
 
     tz = ZoneInfo(TIMEZONE)
@@ -83,15 +84,17 @@ def get_date_range(engine):
 
 
 def load_dataframe_from_db(engine, inicio, fim, limite=200_000):
-    """
-    Lê os itens emitidos entre `inicio` e `fim` (datas, inclusive), no mesmo
-    formato do relatório gerado dos XMLs. Somente leitura.
-    """
+    """Carrega os itens emitidos entre as datas (inclusive), somente para leitura."""
     with engine.connect() as conn:
         # coerce_float=False mantém os valores numéricos como Decimal.
         return pd.read_sql_query(
             SQL,
             conn,
-            params={"inicio": inicio, "fim": fim, "tz": TIMEZONE, "limite": limite},
+            params={
+                "inicio": inicio,
+                "fim": fim,
+                "tz": TIMEZONE,
+                "limite": limite,
+            },
             coerce_float=False,
         )
