@@ -20,6 +20,3 @@ def setup_logging():
             logging.StreamHandler(),
         ],
     )
-
-    # Para não poluir o log da aplicação
-    logging.getLogger("watchdog").setLevel(logging.WARNING)
